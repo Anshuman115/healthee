@@ -85,10 +85,20 @@ class ScriptedAuth {
     Map<String, Object?>? reply,
     this.status = 200,
     this.unreachable = false,
+    this.unreachableGrant,
   }) : reply = reply ?? tokenBody();
 
   /// Whether the transport fails to reach the server at all.
   final bool unreachable;
+
+  /// Fail only the calls carrying this `grant_type`, and answer the rest.
+  ///
+  /// `refresh_token` reproduces the owner's real condition: a stored session
+  /// whose refresh cannot get through while a fresh password sign-in
+  /// (`grant_type=password`) goes to the same host and works. An all-or-nothing
+  /// [unreachable] cannot express that, and the ordering bug it exposes only
+  /// happens when the two differ.
+  final String? unreachableGrant;
 
   /// The body to answer with.
   final Map<String, Object?> reply;
@@ -102,7 +112,8 @@ class ScriptedAuth {
   /// The transport `GoTrueClient` should be given.
   MockClient get client => MockClient((request) async {
     sent.add(request);
-    if (unreachable) {
+    final grant = request.url.queryParameters['grant_type'];
+    if (unreachable || (unreachableGrant != null && grant == unreachableGrant)) {
       throw const SocketException('the sign-in service could not be reached');
     }
     return http.Response(

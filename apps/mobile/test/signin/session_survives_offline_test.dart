@@ -83,6 +83,34 @@ void main() {
     );
   });
 
+  test('a sign-in after a failed restore still yields a token', () async {
+    // The property the retry above has to not break. Clearing `_ready` means the
+    // NEXT caller re-runs recovery — and `accessToken` is a caller, so `signIn`
+    // (which awaits `restore`) is followed immediately by a second recovery
+    // attempt while a fresh session is live.
+    //
+    // ⚠ This test does NOT distinguish a guard in `_restore`: `gotrue` already
+    // returns the existing session rather than recovering over it when one is
+    // live and unexpired for the same user (`gotrue_client.dart`, "Session was
+    // already refreshed elsewhere"). A guard here was written, could not be
+    // caught by any mutation, and was removed. What this holds is the OUTCOME —
+    // that the sequence yields a usable token — which is what the owner
+    // experiences and what stays true if that upstream behaviour changes.
+    //
+    // The refresh is what cannot get through, while a password sign-in to the
+    // same host works: the owner's ordinary condition on a flaky link, and the
+    // condition the retry exists for.
+    final store = FakeSecretStore()
+      ..values[kIdentitySessionKey] = _expiredSession();
+    final auth = ScriptedAuth(unreachableGrant: 'refresh_token');
+    final identity = identityWith(auth, store, autoRefresh: true);
+
+    await identity.restore(); // the refresh cannot get through; memo cleared
+    await identity.signIn(email: 'owner@example.com', password: 'a-password');
+
+    expect(await identity.accessToken(), isNotNull);
+  });
+
   test('A REFUSED session IS still deleted — the distinction is the point', () async {
     // The other half. A server that answers "this refresh token is dead" HAS
     // told us, and keeping it would make every later read fail the same way with
