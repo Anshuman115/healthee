@@ -129,12 +129,24 @@ jobs:
           docker run --rm healthee-server:ci python -c \
             "from healthee.insights import manifest; ids = manifest.note_ids(); assert len(ids) >= 60, ids; print('manifest OK:', len(ids))"
       # Smoke B — boot the image against the DB and poll /healthz until 200.
+      #
+      # `ALLOW_ADMIN_DB_FALLBACK=true` is REQUIRED and is not a workaround: the
+      # settings guard refuses to boot when `POSTGRES_APP_*` are blank, because a
+      # pool on the admin role bypasses RLS. This smoke test has no app role and no
+      # data to isolate — it asks "does the built image start and serve /healthz" —
+      # so it takes the guard's own documented escape hatch and says so explicitly.
+      # Without it the container exited on a `ValidationError` and this job had been
+      # red since the guard landed, with the poll loop reporting a connection
+      # refusal that named neither the cause nor the fix.
+      #
+      # ⛔ Never set this in a deployment. `infra/DEPLOY.md` B2 owns the one real
+      # use: the two-deploy bootstrap, where the role does not exist yet.
       - name: Smoke B — boot + /healthz
         run: |
           docker run -d --name healthee-smoke --network host \
             -e POSTGRES_HOST=localhost -e POSTGRES_PORT=5432 \
             -e POSTGRES_DB=healthee -e POSTGRES_USER=healthee -e POSTGRES_PASSWORD=healthee \
-            -e REALTIME_INGEST_TOKEN=ci-test-token \
+            -e ALLOW_ADMIN_DB_FALLBACK=true \
             healthee-server:ci
           echo "polling http://localhost:8765/healthz (up to 40s)…"
           for i in $(seq 1 40); do

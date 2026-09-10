@@ -90,6 +90,19 @@ class Settings(BaseSettings):
     supabase_project_ref: str = ""
     # Expected `aud` claim on a Supabase access token (default for its auth server).
     supabase_jwt_aud: str = "authenticated"
+
+    # ── What this deployment tells its APP to sign in against ───────────────
+    #
+    # Served unauthenticated by `GET /api/auth-config` (which argues why), because a
+    # client needs this BEFORE it can authenticate. Both are public by construction:
+    # the URL names a project and the **anon** key is the one Supabase documents as
+    # shipping inside clients. ⛔ NEVER `service_role`, which bypasses every policy
+    # and lives in `supabase_service_role_key`.
+    #
+    # `supabase_url` is optional — blank derives `https://<ref>.supabase.co` from
+    # `supabase_project_ref`. Set it only for a self-hosted GoTrue, which has no ref.
+    supabase_url: str = ""
+    supabase_anon_key: str = ""
     # ── Signup gating (MULTI_USER.md §4, §13 [D1]) ────────────────────────
     # Invite-gated by config now, self-serve flippable later. The SERVER is the
     # trust boundary (§12.7), so this is enforced here — in `supabase_auth.

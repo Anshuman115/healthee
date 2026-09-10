@@ -67,6 +67,8 @@ services:
       SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
       SUPABASE_PROJECT_REF: ${SUPABASE_PROJECT_REF:-}
       SUPABASE_JWT_AUD: ${SUPABASE_JWT_AUD:-authenticated}
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
       # Signup gating (§4, §13 [D1]) — enforced by the server, not Supabase.
       # SIGNUP_ALLOWLIST is what makes owner onboarding possible (§4.4b), so it
       # must reach the container or the claim procedure cannot be run.
