@@ -21,7 +21,7 @@ import pytest
 from fastapi.testclient import TestClient
 from tests.premium.conftest import AUTH
 
-from healthee.api.gate import SLEEP_CONSISTENCY_AI_FIELDS, TODAY_AI_FIELDS
+from healthee.api.gate_fields import SLEEP_CONSISTENCY_AI_FIELDS, TODAY_AI_FIELDS
 
 pytestmark = pytest.mark.integration
 

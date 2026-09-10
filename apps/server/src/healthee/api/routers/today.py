@@ -20,7 +20,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from healthee.api.gate import DAILY_ACTION, TODAY_AI_FIELDS, gate_free_payload
+from healthee.api.gate import DAILY_ACTION
+from healthee.api.gate_fields import TODAY_AI_FIELDS, gate_free_payload
 from healthee.api.validation import require_reference_day
 from healthee.core.db import tenant_transaction
 from healthee.core.request_auth import CurrentUser

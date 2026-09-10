@@ -138,7 +138,7 @@ def test_tool_result_flows_back_and_a_valid_answer_ships(
     assert result.tool_calls[0]["result"]["avg"] == 42.0
 
 
-def test_the_model_is_offered_the_seven_live_tools() -> None:
+def test_the_model_is_offered_the_nine_live_tools() -> None:
     stub = CoachStub([valid_turn()])
     _run(_ask("how am I doing?"), client=stub)
     offered = {t["function"]["name"] for t in stub.tools_seen[0]}
@@ -151,6 +151,10 @@ def test_the_model_is_offered_the_seven_live_tools() -> None:
         # WP-C5 — deferred until the challenges subsystem existed, live now.
         "adopt_challenge",
         "create_challenge",
+        # WP-C4b's ladders. The generator could design one long before the
+        # conversation could ask for one; these are that seam.
+        "adopt_program",
+        "create_program",
     }
 
 

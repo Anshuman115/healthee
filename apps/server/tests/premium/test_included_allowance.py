@@ -30,6 +30,7 @@ from tests.premium.conftest import AUTH
 
 from healthee.api import gate
 from healthee.core import allowance
+from healthee.core.config import get_settings
 from healthee.core.db import tenant_transaction
 from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 
@@ -67,7 +68,14 @@ def _ledger_rows() -> dict[str, str]:
 
 
 def _cap_at(monkeypatch: pytest.MonkeyPatch, questions: int) -> None:
-    monkeypatch.setitem(gate.PREMIUM_ALLOWANCE, gate.COACH, questions)
+    """Set the coach cap the way a DEPLOYMENT does — the env, not the mapping.
+
+    `gate.premium_allowance()` reads `core.config`, so patching a dict no longer
+    changes anything. Going through the env is also the stronger test: it
+    exercises the path an operator actually uses, including the settings cache.
+    """
+    monkeypatch.setenv("PREMIUM_COACH_QUESTIONS", str(questions))
+    get_settings.cache_clear()
 
 
 # ── the one that bills the owner if it breaks ─────────────────────────────────
@@ -206,7 +214,7 @@ def test_a_feature_capped_later_appears_without_anyone_editing_the_endpoint(
     too, the day it was forgotten a paying owner would hit a limit that no surface admits
     exists.
     """
-    monkeypatch.setitem(gate.PREMIUM_ALLOWANCE, gate.NOTABLE, 3)
+    monkeypatch.setattr(gate, "premium_allowance", lambda: {gate.COACH: 20, gate.NOTABLE: 3})
     by_feature = {entry["feature"]: entry for entry in _included(bed)}
     assert set(by_feature) == {gate.COACH, gate.NOTABLE}
     assert by_feature[gate.NOTABLE]["limit"] == 3
