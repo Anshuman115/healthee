@@ -15,6 +15,7 @@ network call happens under pytest.
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any, Protocol
@@ -96,11 +97,20 @@ class Usage:
     by instrumenting this call by hand; keeping the number costs nothing and makes the
     diagnosis repeatable — including by the grounding eval harness, which reads it
     through an injected client to report what an answer actually cost.
+
+    ``cached_prompt_tokens`` is the same kind of field for the other half of the bill.
+    The coach's system turn — persona, the owner's context and the evidence block — is
+    built ONCE per request and re-sent unchanged on every round, ~40,000 tokens of it.
+    Whether the provider serves that from its cache is the difference between a round
+    that re-reads the corpus and one that does not, and it decides which lever makes
+    the coach faster. Nothing recorded it, so "is the prompt the problem?" could only
+    be answered by guessing.
     """
 
     prompt_tokens: int = 0
     completion_tokens: int = 0
     reasoning_tokens: int = 0
+    cached_prompt_tokens: int = 0
 
 
 @dataclass(frozen=True)
@@ -208,22 +218,44 @@ class OpenRouterClient:
         if provider is not None:
             kwargs["extra_body"] = {**kwargs.get("extra_body", {}), "provider": provider}
         sdk = self._client()
+        started = time.monotonic()
         try:
             raw = sdk.chat.completions.create(**kwargs)
         except Exception as exc:  # recorded on the health surface, then re-raised untouched
             transport_health.record_failure(exc)
             raise
+        elapsed = time.monotonic() - started
         transport_health.record_success()
         choice = raw.choices[0]
         message = choice.message
         _warn_if_truncated(choice, model)
+        usage = _usage(raw)
         # tier, never the id: the model we run must not be discoverable, and a log line
         # is a place it reaches operators, log shippers and anyone with read access.
-        log.info("llm completion: tier=%s tools=%d", tier_of(model), len(tools or []))
+        #
+        # ⛔ **The duration and the token split are the point.** Without them "the coach
+        # is slow" could only be answered by subtracting timestamps of consecutive log
+        # lines and guessing which half was to blame — which is how a 46,000-token prompt
+        # got named as the cause of a ~100 s round before anybody had checked whether the
+        # time was going into INPUT at all. This tier is a reasoning model and its
+        # thinking is DECODE, generated a token at a time; prompt size and reasoning
+        # length are different problems with different fixes, and one line here tells
+        # them apart. Counts and seconds only — never a prompt, never an answer.
+        log.info(
+            "llm completion: tier=%s tools=%d in %.1fs "
+            "(prompt=%d cached=%d completion=%d reasoning=%d)",
+            tier_of(model),
+            len(tools or []),
+            elapsed,
+            usage.prompt_tokens if usage else -1,
+            usage.cached_prompt_tokens if usage else -1,
+            usage.completion_tokens if usage else -1,
+            usage.reasoning_tokens if usage else -1,
+        )
         return ChatResponse(
             text=message.content or "",
             tool_calls=getattr(message, "tool_calls", None),
-            usage=_usage(raw),
+            usage=usage,
         )
 
 
@@ -287,10 +319,16 @@ def _usage(raw: Any) -> Usage | None:
     if usage is None:
         return None
     details = getattr(usage, "completion_tokens_details", None)
+    prompt_details = getattr(usage, "prompt_tokens_details", None)
     return Usage(
         prompt_tokens=getattr(usage, "prompt_tokens", 0) or 0,
         completion_tokens=getattr(usage, "completion_tokens", 0) or 0,
         reasoning_tokens=getattr(details, "reasoning_tokens", 0) or 0,
+        # Read as defensively as the rest: providers spell this differently and some
+        # omit it. A zero here means "not reported", which is NOT the same as "no cache
+        # hit" — the log line says the number, and reading it as a claim either way
+        # would be exactly the guess this field exists to replace.
+        cached_prompt_tokens=getattr(prompt_details, "cached_tokens", 0) or 0,
     )
 
 
