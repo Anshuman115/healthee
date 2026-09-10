@@ -86,6 +86,7 @@ services:
       COACH_MODEL: ${COACH_MODEL:-}
       LLM_TIMEOUT_S: ${LLM_TIMEOUT_S:-60}
       LLM_MAX_RETRIES: ${LLM_MAX_RETRIES:-1}
+      GATHERING_DEADLINE_S: ${GATHERING_DEADLINE_S:-150}
       # Read by /readyz's balance state. The ALERT on it is the scheduler's job;
       # this container only has to agree with it about where "low" starts.
       LLM_LOW_BALANCE_USD: ${LLM_LOW_BALANCE_USD:-20}
@@ -173,6 +174,7 @@ services:
       # 600 s × 3 default applied to the container that can least afford it.
       LLM_TIMEOUT_S: ${LLM_TIMEOUT_S:-60}
       LLM_MAX_RETRIES: ${LLM_MAX_RETRIES:-1}
+      GATHERING_DEADLINE_S: ${GATHERING_DEADLINE_S:-150}
       # This container is the one that ALERTS on the LLM layer (jobs/llm_watch.py):
       # it polls the free credits endpoint hourly and pushes a Telegram warning below
       # this balance, plus an outage alert on repeated transport failures. Without it
