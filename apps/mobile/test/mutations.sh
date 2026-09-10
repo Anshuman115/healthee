@@ -3397,6 +3397,17 @@ mutate 'a release with no versionCode is used anyway' \
   ''
 
 
+# Shipped, and seen on a real phone: Sleep read "…sleep debt of 1,793 minutes ``."
+# The model backticks its citations because the system prompt's examples do, so
+# stripping the bracket left the ticks as punctuation noise on the one sentence
+# whose job is to carry a claim and show its evidence.
+mutate 'a stripped citation leaves its backticks behind' \
+  test/data/citations_test.dart lib/data/honesty/citations.dart \
+  "    .replaceAll(RegExp(r'\`[ \\t]*\`'), '')
+" \
+  ''
+
+
 echo
 echo "caught $PASS, survived $FAIL"
 [ "$SKIPPED" -eq 0 ] || echo "SKIPPED $SKIPPED — this was a FILTERED run, not the gate"

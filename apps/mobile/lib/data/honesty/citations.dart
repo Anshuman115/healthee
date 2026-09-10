@@ -240,7 +240,23 @@ void _addAll(List<String> into, Iterable<String> from) {
 /// a double space before the comma, and from the end of a sentence it leaves a
 /// space before the full stop. Neither is visible in a diff and both are visible
 /// on a phone.
+///
+/// ## The empty backticks, which shipped
+///
+/// The model writes citations as `` `[note_id]` `` — wrapped in code ticks —
+/// because the system prompt's own examples are written that way and it copies
+/// the house style. Stripping the bracket then left the ticks behind, so Sleep
+/// read *"…a rolling sleep debt of 1,793 minutes ``."* on a real phone.
+///
+/// It is a cosmetic bug in the one place the product cannot afford one: the
+/// sentence carrying a claim, with the mark of its evidence turned into
+/// punctuation noise. The marker is stripped by meaning, so its wrapper has to go
+/// with it.
 String _tidy(String text) => text
+    // Ticks orphaned by a removed marker: `` and ` ` and `​`. Not backticks in
+    // general — a pair with anything between them is somebody's code span and is
+    // theirs to keep.
+    .replaceAll(RegExp(r'`[ \t]*`'), '')
     .replaceAllMapped(RegExp(r'[ \t]+([.,;:!?])'), (m) => m.group(1)!)
     .replaceAll(RegExp(r'[ \t]{2,}'), ' ')
     .replaceAll(RegExp(r'[ \t]+\n'), '\n')
