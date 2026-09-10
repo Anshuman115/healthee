@@ -218,8 +218,9 @@ final class IdentityNotConfigured extends ServerSignInFailure {
 
   @override
   String get remedy =>
-      'It was built without a Supabase project, so there is nothing to sign in '
-      'to. The strap still pairs and every screen still reads from this phone.';
+      'It was built without a Supabase project and no server has named one, so '
+      'there is nothing to sign in to. The strap still pairs and every screen '
+      'still reads from this phone.';
 
   @override
   String get code => 'identity_not_configured';
@@ -338,4 +339,61 @@ final class IdentityUnrecognised extends ServerSignInFailure {
 
   @override
   String get code => 'identity_unrecognised';
+}
+
+
+/// The server answered, and it has no identity provider configured.
+///
+/// ## Not the same as [IdentityNotConfigured], and not the same as a refusal
+///
+/// The server was reached and it replied. It simply has no Supabase project set,
+/// which is a real way to run this — strap-only, everything served from the
+/// phone's own store. The owner is not doing anything wrong and nothing they type
+/// will help; the person who runs the server has to configure it.
+@immutable
+final class ServerHasNoIdentityProvider extends ServerSignInFailure {
+  /// Builds the failure.
+  const ServerHasNoIdentityProvider();
+
+  @override
+  String get headline => 'That server has no sign-in configured';
+
+  @override
+  String get remedy =>
+      'It answered, so the address is right — it just has no identity provider '
+      'set up. Whoever runs it needs to configure one. Your strap and everything '
+      'already on this phone are unaffected.';
+
+  @override
+  String get code => 'server_has_no_identity_provider';
+
+  @override
+  bool get canRetry => false;
+}
+
+
+/// The server is too old to say which identity provider it uses.
+///
+/// A DIFFERENT remedy from [ServerHasNoIdentityProvider], which is why the two
+/// are separate: that one needs configuring, this one needs updating. The server
+/// tells us which by answering 404 rather than 200-with-nulls, and collapsing the
+/// pair would send the owner to the wrong person.
+@immutable
+final class ServerTooOldForSignIn extends ServerSignInFailure {
+  /// Builds the failure.
+  const ServerTooOldForSignIn();
+
+  @override
+  String get headline => 'That server is running an older Healthee';
+
+  @override
+  String get remedy =>
+      'It cannot say which sign-in it uses, which newer versions do. Whoever '
+      'runs it needs to update it. Nothing about your details is wrong.';
+
+  @override
+  String get code => 'server_too_old_for_signin';
+
+  @override
+  bool get canRetry => false;
 }

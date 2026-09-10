@@ -32,9 +32,12 @@
 /// credential would be storage with no reader.
 library;
 
+import 'dart:convert';
+
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:healthee/data/api/secret_store.dart';
 import 'package:healthee/data/api/stored_server_session.dart';
+import 'package:healthee/data/auth/auth_config.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 part 'credentials.g.dart';
@@ -57,6 +60,7 @@ class Credentials {
   static const String _strapAuthKeyKey = 'strap_auth_key';
   static const String _zeppEmailKey = 'zepp_email';
   static const String _zeppPasswordKey = 'zepp_password';
+  static const String _authConfigKey = 'server_auth_config';
 
   /// The API bearer token, or null when the owner has not signed in.
   Future<String?> apiToken() async => (await serverSession())?.token;
@@ -112,6 +116,42 @@ class Credentials {
     await _storage.write(key: _sessionKey, value: 'null');
     await _storage.delete(key: _tokenKey);
     await _storage.delete(key: _baseUrlKey);
+    // The identity provider belongs to the SERVER, so it goes with the session.
+    // Left behind, it would point the next sign-in — possibly at a different
+    // address — at the previous server's Supabase project.
+    await _storage.delete(key: _authConfigKey);
+  }
+
+  /// The identity provider the current server named, or null when none is held.
+  ///
+  /// Cached so a cold start can build the sign-in client without a network call —
+  /// the phone should not need the server reachable in order to know it is signed
+  /// in. Written only after the server has actually answered.
+  ///
+  /// Not a secret, and stored here anyway: it lives and dies with the server
+  /// session beside it, and `clear()` sweeps this prefix. A config left behind
+  /// from a previous server would point the next sign-in at the wrong provider.
+  Future<AuthConfig?> authConfig() async {
+    final stored = await _storage.read(key: _authConfigKey);
+    if (stored == null) {
+      return null;
+    }
+    try {
+      final decoded = jsonDecode(stored);
+      return decoded is Map<String, Object?> ? AuthConfig.fromStored(decoded) : null;
+    } on FormatException {
+      // Unreadable is the same as absent: the server will be asked again.
+      return null;
+    }
+  }
+
+  /// Remembers [config] for this server, or forgets it when null.
+  Future<void> setAuthConfig(AuthConfig? config) async {
+    if (config == null) {
+      await _storage.delete(key: _authConfigKey);
+      return;
+    }
+    await _storage.write(key: _authConfigKey, value: jsonEncode(config.toJson()));
   }
 
   /// The paired strap's Bluetooth MAC, or null when nothing is paired.
