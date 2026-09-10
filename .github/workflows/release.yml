@@ -132,18 +132,35 @@ jobs:
         run: |
           set -euo pipefail
           apk="build/app/outputs/flutter-apk/healthee-${GITHUB_REF_NAME}.apk"
-          # The check that matters, made against the artefact itself rather than
-          # against the config that was supposed to produce it. The debug key's
-          # subject is always this; a release carrying it can never update a real
-          # install, and would be found only on somebody's phone.
-          signer="$(unzip -p "$apk" META-INF/*.RSA 2>/dev/null | keytool -printcert 2>/dev/null | sed -n 's/^Owner: //p' | head -1 || true)"
-          echo "signed by: ${signer:-<could not read>}"
-          case "$signer" in
-            *"CN=Android Debug"*)
-              echo "::error::this APK is DEBUG-signed and must not be published"
-              exit 1
-              ;;
-          esac
+
+          # ⛔ `apksigner`, NOT `unzip META-INF/*.RSA | keytool`. This step was
+          # written that way first and it was a gate that protected nothing:
+          # Flutter's release APKs are signed with the v2/v3 APK scheme and carry
+          # no legacy JAR signature, so the `unzip` found no file, the signer
+          # string was empty, and the `case` matched nothing — a DEBUG-signed APK
+          # sailed through a step whose whole job was to catch it. Verified
+          # against a real debug-signed build before this replaced it.
+          signer_tool="$(find "${ANDROID_HOME:-$ANDROID_SDK_ROOT}/build-tools" \
+            -name apksigner -type f 2>/dev/null | sort -V | tail -1)"
+          if [ -z "$signer_tool" ]; then
+            echo "::error::apksigner not found — refusing to publish an APK whose signer cannot be read"
+            exit 1
+          fi
+
+          certs="$("$signer_tool" verify --print-certs "$apk")"
+          echo "$certs" | grep -i "certificate DN" || true
+
+          # FAILS CLOSED, and that is the point of the step. A guard that cannot
+          # read the artefact must refuse it, not wave it through — which is
+          # exactly how the previous version failed.
+          if ! echo "$certs" | grep -qi "certificate DN"; then
+            echo "::error::could not read any signing certificate from the APK"
+            exit 1
+          fi
+          if echo "$certs" | grep -qi "CN=Android Debug"; then
+            echo "::error::this APK is DEBUG-signed and must not be published — it could never update a real install"
+            exit 1
+          fi
 
       - name: Release notes
         id: notes
