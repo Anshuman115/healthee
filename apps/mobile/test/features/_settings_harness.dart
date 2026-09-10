@@ -43,6 +43,7 @@ import 'package:healthee/data/push/push_stamp_provider.dart';
 import 'package:healthee/data/sync/connection_state.dart';
 import 'package:healthee/data/sync/sync_controller.dart';
 import 'package:healthee/data/today_repository.dart';
+import 'package:healthee/data/updates/update_check.dart';
 import 'package:healthee/features/settings/app_version.dart';
 
 import '../_today_stubs.dart';
@@ -127,6 +128,11 @@ Widget settingsApp({
       // and its own deadline would leave a pending timer behind every widget
       // test that draws the About screen.
       appVersionProvider.overrideWith((ref) async => version),
+      // Same reason as the version above, twice over: the update check reads that
+      // same platform channel AND reaches GitHub. A widget test must do neither,
+      // and the read's own 3 s deadline would be left pending behind every test
+      // that draws About.
+      updateStatusProvider.overrideWith((ref) async => const UpdateUnknown()),
       // The strap screen draws a Stop while a sync runs, so it watches the
       // controller — which opens a strap session as soon as anything does.
       syncControllerProvider.overrideWith(
