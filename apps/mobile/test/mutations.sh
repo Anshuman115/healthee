@@ -14,14 +14,22 @@
 # it actually changed something — a patch that silently matched nothing runs the
 # unmutated suite and reports a pass, which reads exactly like a working guard.
 #
-# Usage:  bash test/mutations.sh          (from apps/mobile)
+# Usage:  bash test/mutations.sh              (from apps/mobile — every mutation)
+#         bash test/mutations.sh <substring>  (only the ones whose NAME matches)
+#
+# The filter is for iterating on a mutation you just wrote; CI runs the whole
+# file. It skips by name only — a filtered run reports what it skipped, because a
+# run that quietly did four of a hundred and forty-seven reads like a green suite.
+#
 # Exit 0  every mutation was caught.  Exit 1  at least one survived.
 
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 1
 
+ONLY="${1:-}"
 PASS=0
 FAIL=0
+SKIPPED=0
 
 # patch <file> <old> <new> — replaces exactly once, or aborts.
 patch() {
@@ -41,6 +49,10 @@ PY
 mutate() {
   local name="$1" target="$2" file="$3"
   shift 3
+  if [ -n "$ONLY" ] && [[ "$name" != *"$ONLY"* ]]; then
+    SKIPPED=$((SKIPPED + 1))
+    return
+  fi
   echo "── $name"
   cp "$file" "$file.orig"
   while [ "$#" -ge 2 ]; do
@@ -3242,6 +3254,26 @@ mutate 'the Supabase session is never persisted' "$IDENTITY_TEST" \
   ''
 
 
+# ⛔ The 44 px is decoration without this line, and NOTHING about that is visible
+# — the box is the right size, the screenshot is right, and a widget test that
+# taps `find.text(...)` passes because tapping the text is what still worked. It
+# shipped four times before the owner reported the links as hard to press.
+mutate 'a link defers hit-testing to its painted pixels' \
+  test/core/tap_target_gate_test.dart lib/shared/v02/buttons.dart \
+  '        behavior: HitTestBehavior.opaque,
+        child: Opacity(' \
+  '        child: Opacity('
+
+# And the constraint itself, which is the other half: opaque over a 17 px box is
+# an honest tap target for a control that is too small.
+mutate 'the 44 px link constraint is dropped' \
+  test/core/tap_target_gate_test.dart lib/shared/v02/buttons.dart \
+  '  /// `.text-button { min-height: 44px }`.
+  static const double minHeight = 44;' \
+  '  /// `.text-button { min-height: 44px }`.
+  static const double minHeight = 0;'
+
 echo
 echo "caught $PASS, survived $FAIL"
+[ "$SKIPPED" -eq 0 ] || echo "SKIPPED $SKIPPED — this was a FILTERED run, not the gate"
 [ "$FAIL" -eq 0 ]

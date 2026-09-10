@@ -167,7 +167,11 @@ class HButton extends StatelessWidget {
       button: true,
       enabled: enabled,
       label: label,
-      child: GestureDetector(onTap: onPressed, child: button),
+      child: GestureDetector(
+        onTap: onPressed,
+        behavior: HitTestBehavior.opaque,
+        child: button,
+      ),
     );
   }
 }
@@ -202,6 +206,14 @@ class HLinkButton extends StatelessWidget {
       label: label,
       child: GestureDetector(
         onTap: onPressed,
+        // ⛔ **Without this the 44 px below is decoration.** A `GestureDetector`
+        // defaults to `deferToChild`, so only the PAINTED pixels are hit-
+        // testable — the glyphs of the label and the arrow, and nothing else.
+        // The `minHeight` made the box 44 tall and left the extra 24 of it
+        // transparent to a finger, so the real target was the ~17 px of letters
+        // and the owner had to hit the text itself. Opaque is what turns the
+        // constraint into a tap target.
+        behavior: HitTestBehavior.opaque,
         child: Opacity(
           opacity: enabled ? 1 : HButton.disabledOpacity,
           child: ConstrainedBox(

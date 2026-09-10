@@ -160,7 +160,11 @@ class EntryCard extends StatelessWidget {
         : Semantics(
             button: true,
             label: label == null ? title : '$title. $label',
-            child: GestureDetector(onTap: open, child: card),
+            child: GestureDetector(
+              onTap: open,
+              behavior: HitTestBehavior.opaque,
+              child: card,
+            ),
           );
   }
 }

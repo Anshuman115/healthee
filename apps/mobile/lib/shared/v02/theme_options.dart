@@ -142,6 +142,10 @@ class _Tile<T> extends StatelessWidget {
       label: option.label,
       child: GestureDetector(
         onTap: onTap,
+        // ⛔ The ground is `chosen ? accentSoft : null`, so an UNCHOSEN option
+        // paints nothing and `deferToChild` leaves only its label tappable —
+        // and the unchosen one is the only one anybody ever taps.
+        behavior: HitTestBehavior.opaque,
         child: Container(
           padding: ThemeOptions.padding,
           decoration: ShapeDecoration(

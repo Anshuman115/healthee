@@ -294,6 +294,9 @@ class PanelHead extends StatelessWidget {
             label: label,
             child: GestureDetector(
               onTap: onAction,
+              // The child is a bare glyph, so `deferToChild` makes the tap
+              // target the 16 px of ink and nothing around it.
+              behavior: HitTestBehavior.opaque,
               child: Icon(
                 SolarIconsOutline.arrowRight,
                 size: compactActionIcon,
