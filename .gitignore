@@ -25,6 +25,11 @@ apps/mobile/.flutter-plugins*
 apps/mobile/android/.gradle/
 apps/mobile/android/local.properties
 apps/mobile/android/key.properties
+# The signing key itself, wherever it is put. It is the update channel: an APK
+# signed by a different key cannot update an install, so this must never leak and
+# must never be lost.
+*.jks
+*.keystore
 *.apk
 
 # node (contracts/knowledge tooling, if any)
