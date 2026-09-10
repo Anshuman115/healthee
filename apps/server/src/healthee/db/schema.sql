@@ -451,6 +451,25 @@ CREATE TABLE IF NOT EXISTS device_token (
 -- Narrowed to un-revoked rows it would let a revoked hash be re-minted.
 CREATE UNIQUE INDEX IF NOT EXISTS device_token_hash_idx ON device_token (token_hash);
 
+-- ── coach_commitment (0021) ────────────────────────────────────────────────
+-- What the owner told the coach they would do, so the next conversation is not a
+-- cold start. One row per agreement; the transcript is never stored. `metric` is
+-- NULLABLE on purpose — "I'll get to bed earlier" names none, and inventing one
+-- would invent an attribution. See the migration for the whole argument.
+CREATE TABLE IF NOT EXISTS coach_commitment (
+  id           BIGSERIAL    PRIMARY KEY,
+  user_id      UUID         NOT NULL REFERENCES app_user(id)
+                              ON UPDATE CASCADE ON DELETE CASCADE,
+  stated       TEXT         NOT NULL,
+  metric       TEXT,
+  check_in_on  DATE         NOT NULL,
+  status       TEXT         NOT NULL DEFAULT 'open',
+  created_at   TIMESTAMPTZ  NOT NULL DEFAULT now(),
+  resolved_at  TIMESTAMPTZ
+);
+CREATE INDEX IF NOT EXISTS coach_commitment_open_idx
+  ON coach_commitment (user_id, status, check_in_on);
+
 -- ── subscription (0011_subscription) ───────────────────────────────────────
 -- The entitlement row (MULTI_USER.md §12.2): one per owner, the SOLE source of
 -- truth for premium access. `core/entitlement.py` is the only reader and the ops
@@ -494,15 +513,16 @@ CREATE TABLE IF NOT EXISTS subscription (
 --     plain ENABLE already binds it; the admin stays unbound on purpose (migrate,
 --     claim_sentinel and the test reset must all see across owners).
 --
--- The 18 tenant tables, each with `<table>_tenant`:
+-- The 19 tenant tables, each with `<table>_tenant`:
 --   sample · sleep_session · workout · derived_daily · weight_log · kv ·
 --   manual_entry · illness_flag · recommendation · finding · challenge · program ·
 --   challenge_outcome · gps_track · gps_point · profile · subscription ·
---   device_daily_total
+--   device_daily_total · coach_commitment
 --
--- `device_daily_total` (0017) declares its own policy in its own migration, of exactly
--- the shape above — a tenant table added later is policied where it is created, not by
--- editing 0008, which has already been applied everywhere.
+-- `device_daily_total` (0017) and `coach_commitment` (0021) declare their own policies
+-- in their own migrations, of exactly the shape above — a tenant table added later is
+-- policied where it is created, not by editing 0008, which has already been applied
+-- everywhere.
 --
 -- `subscription` (0011) is policied like the rest, and additionally carries a
 -- privilege the others do not need: the app role may only SELECT it, so a request

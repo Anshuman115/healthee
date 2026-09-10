@@ -138,7 +138,7 @@ def test_tool_result_flows_back_and_a_valid_answer_ships(
     assert result.tool_calls[0]["result"]["avg"] == 42.0
 
 
-def test_the_model_is_offered_the_nine_live_tools() -> None:
+def test_the_model_is_offered_the_eleven_live_tools() -> None:
     stub = CoachStub([valid_turn()])
     _run(_ask("how am I doing?"), client=stub)
     offered = {t["function"]["name"] for t in stub.tools_seen[0]}
@@ -155,6 +155,9 @@ def test_the_model_is_offered_the_nine_live_tools() -> None:
         # conversation could ask for one; these are that seam.
         "adopt_program",
         "create_program",
+        # C1 — the coach's memory between conversations.
+        "record_commitment",
+        "resolve_commitment",
     }
 
 

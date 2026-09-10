@@ -29,7 +29,7 @@ from healthee.analytics.series import daily_series, event_days
 from healthee.core.db import tenant_transaction
 from healthee.core.logging import get_logger
 from healthee.core.tenancy import user_today
-from healthee.insights import challenge_tools, manifest, program_tools
+from healthee.insights import challenge_tools, commitments, manifest, program_tools
 from healthee.insights.retrieval import rank_notes
 from healthee.insights.tool_spec import function_tool
 from healthee.read.logs import LogRequest, record_log
@@ -41,7 +41,9 @@ log = get_logger(__name__)
 # one of these ran AND returned ok this turn (the anti-hallucination guard keys off
 # this set, and ``coach._CLAIM_TOOLS`` narrows it per claim).
 ACTION_TOOLS: frozenset[str] = (
-    frozenset({"log_entry"}) | challenge_tools.ACTION_TOOLS | program_tools.ACTION_TOOLS
+    frozenset({"log_entry", "record_commitment", "resolve_commitment"})
+    | challenge_tools.ACTION_TOOLS
+    | program_tools.ACTION_TOOLS
 )
 
 _METRIC_HINT = (
@@ -139,6 +141,42 @@ COACH_TOOLS: list[dict] = [
     # WP-C4b's pair, same argument one horizon longer: a ladder is designed by the
     # generator from the owner's own baseline, never by the model in conversation.
     *program_tools.PROGRAM_TOOLS,
+    function_tool(
+        "record_commitment",
+        "Remember something the person just AGREED to do ('I'll move my coffee "
+        "before 2pm', 'I'll walk after dinner'). Only when they committed — not "
+        "when you suggested it and not when they were thinking aloud. It is how "
+        "the next conversation is not a cold start: what you record here comes "
+        "back to you, and you ask about it when the check-in falls due. Name the "
+        "metric it should move ONLY if this app tracks one; leave it out otherwise "
+        "rather than picking a near-miss.",
+        {
+            "stated": {
+                "type": "string",
+                "description": "what they agreed to, in their words",
+            },
+            "metric": {
+                "type": "string",
+                "description": "the metric it should move, when this app tracks one",
+            },
+            "check_in_days": {
+                "type": "integer",
+                "description": "when to ask again; default 14, clamped to 3-90",
+            },
+        },
+        ["stated"],
+    ),
+    function_tool(
+        "resolve_commitment",
+        "Close an open commitment with what the PERSON said became of it — kept, "
+        "missed or dropped. Only on their word: nothing here observes whether they "
+        "did it, and you must never infer a result from a metric moving.",
+        {
+            "commitment_id": {"type": "integer", "description": "the id in your context"},
+            "status": {"type": "string", "enum": ["kept", "missed", "dropped"]},
+        },
+        ["commitment_id", "status"],
+    ),
 ]
 
 
@@ -173,6 +211,18 @@ def execute_tool(name: str, args: dict[str, Any], user_id: UUID, tz: str) -> dic
         return challenge_tools.execute(name, args, user_id, tz)
     if name in program_tools.TOOL_NAMES:
         return program_tools.execute(name, args, user_id, tz)
+    if name == "record_commitment":
+        return commitments.record(
+            user_id,
+            tz,
+            str(args.get("stated") or ""),
+            args.get("metric"),
+            args.get("check_in_days"),
+        )
+    if name == "resolve_commitment":
+        return commitments.resolve(
+            user_id, int(args.get("commitment_id") or 0), str(args.get("status") or "")
+        )
     log.warning("coach requested unknown tool %s", name)
     return {"error": f"unknown tool {name}"}
 

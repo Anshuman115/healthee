@@ -103,6 +103,10 @@ def seed_every_tenant_table(cur, user_id: UUID) -> None:
         "SET plan = EXCLUDED.plan, granted_by = EXCLUDED.granted_by",
         (user_id, MARK, TS, MARK),
     )
+    cur.execute(
+        "INSERT INTO coach_commitment (user_id, stated, check_in_on) VALUES (%s, %s, CURRENT_DATE)",
+        (user_id, MARK),
+    )
     _seed_challenge_and_gps(cur, user_id)
 
 

@@ -67,6 +67,7 @@ _DML_TABLES: tuple[str, ...] = (
     "app_user",
     "challenge",
     "challenge_outcome",
+    "coach_commitment",
     "derived_daily",
     "device_daily_total",
     "device_token",
@@ -89,6 +90,7 @@ _DML_TABLES: tuple[str, ...] = (
 # sequence even when the table grant is in place, so they are named, not assumed.
 _SEQUENCES: tuple[str, ...] = (
     "challenge_id_seq",
+    "coach_commitment_id_seq",
     "program_id_seq",
     "recommendation_id_seq",
 )
