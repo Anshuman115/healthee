@@ -140,8 +140,21 @@ class IdentityClient {
   Future<void> _restore() async {
     final auth = await _resolved();
     if (auth == null) {
-      // No provider: nothing to restore into, and nothing to sign in with. The
-      // screen reports it from `isConfigured` rather than this failing.
+      // ⛔ **NOT memoised**, and this is the second time this exact shape has bitten.
+      //
+      // `restore()` is `_ready ??= _restore()`. Returning here with `_ready` left
+      // completed means the provider is never resolved again for the life of the
+      // process: `accessToken()` returns null forever, the interceptor honestly
+      // sends no header, and every `/api/*` call is a 401 with no token in it for
+      // the server to complain about.
+      //
+      // And resolution CAN fail transiently — the last step asks the server over
+      // the network. Observed on a real phone: one racing call at startup, then a
+      // permanently signed-out app against a server that was answering fine.
+      //
+      // Same rule as the retryable branch below: a thing we could not establish is
+      // not a thing we established to be absent.
+      _ready = null;
       return;
     }
     _watch ??= auth.onAuthStateChange.listen(_persist, onError: _noteStreamError);

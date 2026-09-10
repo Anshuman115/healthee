@@ -16,6 +16,7 @@ import 'dart:io';
 
 import 'package:gotrue/gotrue.dart';
 import 'package:healthee/data/api/secret_store.dart';
+import 'package:healthee/data/auth/auth_config.dart';
 import 'package:healthee/data/auth/identity_client.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -151,3 +152,15 @@ IdentityClient identityWith(
     secrets,
   );
 }
+
+/// A `GoTrueClient` for [config] over a scripted transport.
+///
+/// The shape `IdentityClient.deferred` builds, so a test can exercise resolution
+/// without reaching a real Supabase project.
+GoTrueClient gotrueFor(AuthConfig config, ScriptedAuth auth) => GoTrueClient(
+  url: config.gotrueUrl,
+  headers: <String, String>{'apikey': config.anonKey},
+  httpClient: auth.client,
+  autoRefreshToken: false,
+  flowType: AuthFlowType.implicit,
+);

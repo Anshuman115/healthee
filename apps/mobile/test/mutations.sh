@@ -3445,6 +3445,47 @@ mutate 'the compiled-in provider wins over the discovered one' \
     null ??'
 
 
+# ⛔ THE UPGRADE PATH. Without it every existing install signs itself out: a phone
+# that signed in before auth-config existed has a session and an address but no
+# provider, so on a defines-free build the client is never built, the session
+# cannot be recovered, and every call is a 401 with no token in it. Silently.
+mutate 'an upgrading install never asks the server it is signed in to' \
+  test/auth/discovery_test.dart lib/data/auth/identity_providers.dart \
+  '  return _fromTheServerWeAreSignedInTo(credentials, discover);' \
+  '  return null;'
+
+# And a bad moment must not become a permanent signed-out state.
+mutate 'an unreachable server is cached as having no provider' \
+  test/auth/discovery_test.dart lib/data/auth/identity_providers.dart \
+  '  if (result is! AuthConfigFound) {
+    AppLog.info('"'"'identity'"'"', '"'"'the signed-in server named no provider yet'"'"');
+    return null;
+  }
+  await credentials.setAuthConfig(result.config);' \
+  '  if (result is! AuthConfigFound) {
+    await credentials.setAuthConfig(
+      const AuthConfig(supabaseUrl: '"'"'x'"'"', anonKey: '"'"'y'"'"'),
+    );
+    return null;
+  }
+  await credentials.setAuthConfig(result.config);'
+
+
+# ⛔ The SECOND time this shape bit. `restore()` memoises, so returning here with
+# `_ready` completed means the provider is never resolved again for the life of the
+# process — `accessToken()` returns null forever and every /api/* call is a 401
+# with no token in it. Observed on a real phone against a server answering fine.
+mutate 'a failed provider resolution is memoised as complete' \
+  test/auth/discovery_test.dart lib/data/auth/identity_client.dart \
+  '      _ready = null;
+      return;
+    }
+    _watch ??= auth.onAuthStateChange.listen(_persist, onError: _noteStreamError);' \
+  '      return;
+    }
+    _watch ??= auth.onAuthStateChange.listen(_persist, onError: _noteStreamError);'
+
+
 echo
 echo "caught $PASS, survived $FAIL"
 [ "$SKIPPED" -eq 0 ] || echo "SKIPPED $SKIPPED — this was a FILTERED run, not the gate"
