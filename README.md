@@ -22,6 +22,7 @@ green rings.
 
 ## Contents
 - [What it does](#what-it-does)
+- [The app](#the-app)
 - [Architecture](#architecture)
 - [The data flow](#the-data-flow)
 - [The honesty contract](#the-honesty-contract)
@@ -54,6 +55,21 @@ green rings.
 - **Grounds** every word: an AI coach and daily insights that must cite the
   research corpus or say the evidence isn't there — enforced by a blocking
   validator, not a hopeful prompt.
+
+## The app
+
+| Today | Sleep | Insights |
+|---|---|---|
+| ![Today — biological age, recovery, sleep and movement](docs/screenshots/01-today.png) | ![Sleep — the grounded analysis, time asleep and the night's stages](docs/screenshots/02-sleep.png) | ![Insights — personal correlations and effort against stress](docs/screenshots/04-insights.png) |
+
+| Activity | Actions |
+|---|---|
+| ![Activity — movement, workouts and the week](docs/screenshots/03-activity.png) | ![Actions — the day's suggested actions and challenges](docs/screenshots/05-actions.png) |
+
+Real screens on a real device, with one owner's real data — not mockups, and not a
+demo tenant. Every number shown came off an Amazfit Helio Strap and through the
+pipeline in this repo. The sentences in Sleep are the grounded layer: each claim
+either cites a note in the corpus or says the evidence base does not cover it.
 
 ## Architecture
 

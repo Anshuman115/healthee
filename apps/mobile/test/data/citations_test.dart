@@ -112,4 +112,48 @@ void main() {
       expect(parsed.prose, 'One.\n\nTwo.');
     });
   });
+
+  group('A REMOVED MARKER TAKES ITS CODE TICKS WITH IT', () {
+    // Shipped, and seen on a real phone: Sleep read "…a rolling sleep debt of
+    // 1,793 minutes ``." The model writes citations as `[note_id]` because the
+    // system prompt's own examples are written that way, so stripping the bracket
+    // left the ticks behind — punctuation noise on the exact sentence whose job is
+    // to carry a claim and show its evidence.
+
+    test('backticked citations leave no ticks behind', () {
+      final parsed = parseGrounded(
+        'Your rolling sleep debt is 1,793 minutes `[sleep_debt]`.',
+      );
+
+      expect(parsed.prose, 'Your rolling sleep debt is 1,793 minutes.');
+      expect(parsed.prose, isNot(contains('`')));
+      expect(parsed.noteIds, <String>['sleep_debt']);
+    });
+
+    test('mid-sentence too, without eating the space', () {
+      final parsed = parseGrounded(
+        'Deep sleep varies `[sleep_stages]`, and that is normal.',
+      );
+
+      expect(parsed.prose, 'Deep sleep varies, and that is normal.');
+    });
+
+    test('several in one paragraph', () {
+      final parsed = parseGrounded(
+        'One `[a_note]`. Two `[b_note]`. Three `[c_note]`.',
+      );
+
+      expect(parsed.prose, 'One. Two. Three.');
+      expect(parsed.noteIds, <String>['a_note', 'b_note', 'c_note']);
+    });
+
+    test('⛔ A REAL CODE SPAN IS NOT TOUCHED', () {
+      // The limit of the fix. Only ticks with nothing between them are the
+      // wreckage of a marker; a pair with content is somebody's code span and is
+      // theirs to keep.
+      final parsed = parseGrounded('Set `SIGNUPS_OPEN=true` to open it.');
+
+      expect(parsed.prose, 'Set `SIGNUPS_OPEN=true` to open it.');
+    });
+  });
 }
