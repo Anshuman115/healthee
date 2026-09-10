@@ -21,7 +21,7 @@ from fastapi.testclient import TestClient
 from healthee.api.routers import auth
 from healthee.core.config import get_settings
 from healthee.core.db import transaction
-from healthee.core.supabase_auth import mint_device_token, resolve_device_token
+from healthee.core.device_token import mint_device_token, resolve_device_token
 from healthee.db import migrate
 
 pytestmark = [

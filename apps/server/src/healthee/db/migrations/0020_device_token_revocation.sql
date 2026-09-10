@@ -1,0 +1,46 @@
+-- 0020_device_token_revocation — a device token can be taken back (auth audit C2).
+--
+-- ## The defect
+--
+-- `device_token` had `id`, `user_id`, `token_hash`, `label`, `last_seen`,
+-- `created_at` and nothing else, and `resolve_device_token` filtered on nothing but
+-- the hash. So a token was valid from the moment it was minted until the row was
+-- deleted by hand, and nothing in the codebase deleted one. A lost phone kept
+-- write access to that owner's health data permanently.
+--
+-- The storage side was already right and is untouched: only the SHA-256 hash is
+-- persisted, the raw value is returned once and never written, and the entropy is
+-- `secrets.token_urlsafe(32)`. The gap was lifecycle, not secrecy.
+--
+-- ## Why `revoked_at` and not `DELETE`
+--
+-- The app role holds DML here, so a delete was always possible — and it is the
+-- wrong shape. A revoked token that leaves no row cannot answer "when did this stop
+-- working, and was it used after I revoked it?", which is the question an owner
+-- actually has after losing a phone. `last_seen` beside `revoked_at` answers it.
+-- The row is also what `GET /api/device` lists, and an owner cannot revoke a
+-- credential they cannot see.
+--
+-- NULL means live. That is the state of every row written before this migration,
+-- and it is the correct reading of them: they were never revoked.
+--
+-- ## The unique index stays whole-table
+--
+-- `device_token_hash_idx` is NOT narrowed to un-revoked rows. Narrowing it would
+-- let a revoked hash be re-minted, and a token's hash is derived from 32 bytes of
+-- entropy — a second row with the same hash means the same raw secret, so a
+-- revocation could be undone by a collision the database had stopped preventing.
+-- The index is a uniqueness guarantee about SECRETS, not about live credentials.
+--
+-- ## Cost
+--
+-- One nullable column on a table with a handful of rows per owner. `ADD COLUMN`
+-- with no default and no NOT NULL is a catalogue-only change in PostgreSQL 11+, so
+-- no table rewrite and no reader moves. The revocation lookup rides the existing
+-- unique index on the hash and then reads one column off the row it found; no
+-- second index is worth its write cost on a table this size.
+--
+-- Replay-safe (IF NOT EXISTS); `migrate._apply_one` runs the file plus its ledger
+-- row in ONE transaction.
+
+ALTER TABLE device_token ADD COLUMN IF NOT EXISTS revoked_at TIMESTAMPTZ;

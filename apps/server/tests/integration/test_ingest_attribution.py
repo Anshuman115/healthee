@@ -29,7 +29,7 @@ from healthee.api.app import create_app
 from healthee.core import db as db_module
 from healthee.core.config import get_settings
 from healthee.core.db import admin_connection, transaction
-from healthee.core.supabase_auth import mint_device_token
+from healthee.core.device_token import mint_device_token
 from healthee.core.tenancy import SENTINEL_USER_ID
 from healthee.db import migrate
 
