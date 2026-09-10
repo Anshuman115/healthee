@@ -136,7 +136,10 @@ void main() {
       await tester.pumpWidget(settingsApp(location: Routes.serverSignIn));
       await tester.pumpAndSettle();
 
-      expect(find.text('Sign in to your server'), findsOneWidget);
+      // A test build carries no Supabase dart-defines, so this is the screen a
+      // self-hoster with no identity provider sees: the pasted-token form, which
+      // names itself rather than borrowing the password form's heading.
+      expect(find.text('Sign in with an API token'), findsOneWidget);
       expect(
         find.textContaining('with no server at all'),
         findsOneWidget,

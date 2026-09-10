@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/data/api/account_api.dart';
 import 'package:healthee/data/api/cache_session.dart';
 import 'package:healthee/data/api/credentials.dart';
+import 'package:healthee/data/api/stored_server_session.dart';
 import 'package:healthee/data/background/background_store.dart';
 import 'package:healthee/data/notifications/notification_service.dart';
 import 'package:healthee/data/notifications/reminder_preferences.dart';
@@ -27,7 +28,7 @@ void main() {
     plugin = RecordingNotifications();
     service = NotificationService(plugin, store);
     final credentials = Credentials(FakeSecretStore());
-    await credentials.setServerSession(baseUrl: 'https://test.example', token: 'test');
+    await credentials.setServerSession(baseUrl: 'https://test.example', token: 'test', kind: StoredCredentialKind.shared);
     api = AccountApi(Dio(), await CacheSession.capture(credentials));
   });
   tearDown(() async { await service.destinations.close(); await database.close(); });

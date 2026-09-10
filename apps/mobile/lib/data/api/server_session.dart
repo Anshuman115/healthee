@@ -1,17 +1,33 @@
 /// Signing in to the owner's server, signing out of it, and what is held now.
 ///
-/// The whole rule of this file is in [ServerSessionRepository.signIn]'s order:
+/// The whole rule of this file is the ORDER of its two sign-ins:
 ///
 /// ```text
 ///   parse the address   ──▶  cleartext and malformed die here, unsent
-///   trim the token      ──▶  a pasted newline never becomes a 401
-///   ask the server      ──▶  200 · 401 · unreachable, told apart
-///   THEN store          ──▶  only a token the server itself accepted
+///   prove who you are   ──▶  Supabase refuses a wrong password, offline
+///   ask the server      ──▶  200 · 401 · 403 · unreachable, told apart
+///   mint this device    ──▶  the long-lived credential /ingest/* takes
+///   THEN store          ──▶  only a credential the server itself issued
 /// ```
 ///
 /// Storing before verifying is the tempting shortcut and it is what produces the
 /// state this work package exists to end: an app that believes it is signed in,
 /// serves 401s to every screen, and reports them as missing data.
+///
+/// ## Two ways in, and only one of them has a future
+///
+/// [ServerSessionRepository.signIn] takes an email and a password, proves them
+/// against the identity provider, and comes back with a device token minted for
+/// this phone alone. That is the one that isolates owners from each other.
+///
+/// [ServerSessionRepository.signInWithToken] pastes a credential the owner was
+/// given. It exists because it is the only thing this app could do before, and
+/// the credential it accepts is the shared `REALTIME_INGEST_TOKEN` — a key to
+/// ONE tenant with no identity attached to it. **It must not outlive the
+/// transition.** Handing that string to a second person hands them the first
+/// person's health record; the server's own `core/config.py` refuses to boot
+/// with it set beside open signups, and `docs/MULTI_USER.md` section 4.4a names
+/// its removal condition. Delete this method when that secret goes.
 ///
 /// ## Trimming is not tidiness
 ///
@@ -36,6 +52,10 @@ import 'package:healthee/data/api/credentials.dart';
 import 'package:healthee/data/api/server_probe.dart';
 import 'package:healthee/data/api/server_url.dart';
 import 'package:healthee/data/api/signin_failure.dart';
+import 'package:healthee/data/api/stored_server_session.dart';
+import 'package:healthee/data/auth/device_token_client.dart';
+import 'package:healthee/data/auth/identity_client.dart';
+import 'package:healthee/data/auth/identity_providers.dart';
 import 'package:meta/meta.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -47,16 +67,30 @@ part 'server_session.g.dart';
 @immutable
 class ServerSessionStatus {
   /// [baseUrl] is null exactly when [signedIn] is false.
-  const ServerSessionStatus({required this.signedIn, this.baseUrl});
+  const ServerSessionStatus({
+    required this.signedIn,
+    this.baseUrl,
+    this.rejected = false,
+  });
 
   /// Nothing is stored. The strap-only mode, which is fully supported.
   const ServerSessionStatus.signedOut() : this(signedIn: false);
 
-  /// True when a verified token is in the keystore.
+  /// True when a verified credential is in the keystore.
   final bool signedIn;
 
-  /// The server that token was accepted by, for display.
+  /// The server that credential was accepted by, for display.
   final String? baseUrl;
+
+  /// True once the server has rejected this session with a 401.
+  ///
+  /// **A third state, not a second flavour of signed out.** Something IS stored
+  /// and the address is still known, so the screen can say "your session ended,
+  /// sign in again" with the field already filled — rather than the blank form
+  /// that clearing would produce. And it is not `signedIn: false`, because the
+  /// two want different words: one is a choice the owner made and the other is
+  /// something that happened to them.
+  final bool rejected;
 
   /// The host alone, for a one-line summary. Null when signed out.
   String? get host => baseUrl == null ? null : Uri.parse(baseUrl!).host;
@@ -64,10 +98,13 @@ class ServerSessionStatus {
 
 /// Verifies, stores and clears the owner's server sign-in.
 class ServerSessionRepository {
-  /// [credentials] is the keystore; [probe] is the one authenticated check.
-  const ServerSessionRepository({
+  /// [credentials] is the keystore; [probe] is the one authenticated check;
+  /// [identity] and [devices] are null on a build with no identity provider.
+  ServerSessionRepository({
     required this.credentials,
     required this.probe,
+    required this.identity,
+    required this.devices,
   });
 
   /// Where the session is kept.
@@ -76,22 +113,96 @@ class ServerSessionRepository {
   /// The `GET /api/entitlement` check.
   final ServerProbe probe;
 
-  /// Verifies [token] against [url] and stores both, or throws
-  /// [ServerSignInException] with a named failure and stores **nothing**.
+  /// Proves who the owner is. Null when this build has no provider.
+  final IdentityClient? identity;
+
+  /// Mints this phone's ingest credential. Null when [identity] is.
+  final DeviceTokenClient? devices;
+
+  /// Signs in with an email and a password, and mints this device's token.
   ///
-  /// Returns the address as it was normalised and stored, so a caller can show
-  /// the owner what the app will actually talk to.
-  Future<ServerUrl> signIn({required String url, required String token}) async {
+  /// Throws [ServerSignInException] with a named failure and stores **nothing**
+  /// at every step. Returns the address as normalised and stored, so a caller
+  /// can show the owner what the app will actually talk to.
+  ///
+  /// ## The order is the design
+  ///
+  /// The identity provider goes first because it is the only step that can say
+  /// "that password is wrong" — and it says it without this server being
+  /// involved at all, so a typo never looks like a server fault. Then the server
+  /// is asked, with the JWT, which is where an uninvited email meets the signup
+  /// gate and gets a 403 that means something specific. Only then is a device
+  /// token minted, and only then is anything written down.
+  ///
+  /// ## A signed-in identity with no stored session is a real state
+  ///
+  /// If minting fails, the owner IS signed in to Supabase and this phone has no
+  /// server session — which is correct and recoverable: pressing sign in again
+  /// re-uses the live identity and retries the mint. Signing them back out to
+  /// "clean up" would throw away a proven credential to make a failure tidier.
+  Future<ServerUrl> signIn({
+    required String url,
+    required String email,
+    required String password,
+    String? deviceLabel,
+  }) async {
+    final address = ServerUrl.parse(url);
+    final auth = identity;
+    final minter = devices;
+    if (auth == null || minter == null) {
+      throw const ServerSignInException(IdentityNotConfigured());
+    }
+    await auth.signIn(email: email.trim(), password: password);
+    final jwt = await auth.accessToken();
+    if (jwt == null) {
+      // Signing in and immediately having no token is not a credential problem;
+      // it is the provider having accepted and returned nothing usable.
+      throw const ServerSignInException(IdentityUnreachable());
+    }
+    // With the JWT, because `/api/*` takes no other credential — and because
+    // this is the call that trips the server's signup gate for an uninvited
+    // email, which `ServerProbe` reports as its own named failure.
+    await probe.verify(url: address, token: jwt);
+    final deviceToken = await minter.mint(
+      url: address,
+      jwt: jwt,
+      label: deviceLabel,
+    );
+    await credentials.setServerSession(
+      baseUrl: address.value,
+      token: deviceToken,
+      kind: StoredCredentialKind.device,
+    );
+    rejected = false;
+    // The host, never a credential, and never the whole address — a log line is
+    // read by whoever has the device.
+    AppLog.info('signin', 'signed in to ${address.host}');
+    return address;
+  }
+
+  /// Verifies a PASTED [token] against [url] and stores both. ⛔ TRANSITIONAL.
+  ///
+  /// The credential this accepts is the shared `REALTIME_INGEST_TOKEN`: one
+  /// string, no identity, and a key to one tenant's entire health record. It is
+  /// here because it is the only thing this app could do before Supabase sign-in
+  /// existed, and it goes when that secret does — see the library docstring.
+  Future<ServerUrl> signInWithToken({
+    required String url,
+    required String token,
+  }) async {
     final address = ServerUrl.parse(url);
     final secret = token.trim();
     if (secret.isEmpty) {
       throw const ServerSignInException(MissingToken());
     }
     await probe.verify(url: address, token: secret);
-    await credentials.setServerSession(baseUrl: address.value, token: secret);
-    // The host, never the token, and never the whole address — a log line is
-    // read by whoever has the device.
-    AppLog.info('signin', 'signed in to ${address.host}');
+    await credentials.setServerSession(
+      baseUrl: address.value,
+      token: secret,
+      kind: StoredCredentialKind.shared,
+    );
+    rejected = false;
+    AppLog.info('signin', 'signed in to ${address.host} with a pasted token');
     return address;
   }
 
@@ -99,12 +210,27 @@ class ServerSessionRepository {
   /// signing out of a server is not unpairing a watch, and a phone with no
   /// session still reads and stores everything the strap measured.
   Future<void> signOut() async {
+    // The identity session goes FIRST. If the keystore write failed after the
+    // identity was already cleared the app would hold a server session it could
+    // not authenticate — whereas this order leaves, at worst, a signed-out
+    // identity with a stored session, which the next request resolves into a
+    // 401 and a prompt to sign in. Neither is good; only one of them is quiet.
+    await identity?.signOut();
     await credentials.forgetServerSession();
+    rejected = false;
     AppLog.info(
       'signin',
       'signed out of the server; the strap pairing is kept',
     );
   }
+
+  /// True once a 401 has been seen on this session; cleared by a new sign-in.
+  ///
+  /// Held in the repository rather than in the keystore on purpose: it is a
+  /// fact about the RUNNING app, not about the phone. Persisting it would mean
+  /// a restart still believed a credential was dead after the operator fixed
+  /// whatever rejected it, and the way to find out is to make one request.
+  bool rejected = false;
 
   /// What is held right now.
   ///
@@ -114,16 +240,27 @@ class ServerSessionRepository {
   Future<ServerSessionStatus> status() async {
     final session = await credentials.serverSession();
     if (session == null) return const ServerSessionStatus.signedOut();
-    return ServerSessionStatus(signedIn: true, baseUrl: session.baseUrl);
+    return ServerSessionStatus(
+      signedIn: true,
+      baseUrl: session.baseUrl,
+      rejected: rejected,
+    );
   }
 }
 
 /// The app's [ServerSessionRepository].
 @Riverpod(keepAlive: true)
 ServerSessionRepository serverSessionRepository(Ref ref) {
+  final identity = ref.watch(identityClientProvider);
   return ServerSessionRepository(
     credentials: ref.watch(credentialsProvider),
     probe: ServerProbe(ServerProbe.dioFor()),
+    identity: identity,
+    // Together or neither: a mint has nothing to authenticate with when there
+    // is no identity to sign in against.
+    devices: identity == null
+        ? null
+        : DeviceTokenClient(DeviceTokenClient.dioFor()),
   );
 }
 

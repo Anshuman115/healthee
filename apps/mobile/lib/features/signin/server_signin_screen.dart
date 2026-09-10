@@ -45,10 +45,12 @@ import 'package:healthee/core/router.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale_forms.dart';
 import 'package:healthee/data/api/server_session.dart';
+import 'package:healthee/data/auth/identity_providers.dart';
 import 'package:healthee/features/signin/server_signin_controller.dart';
 import 'package:healthee/features/signin/widgets/server_session_card.dart';
 import 'package:healthee/features/signin/widgets/server_signin_form.dart';
 import 'package:healthee/features/signin/widgets/signin_failure_card.dart';
+import 'package:healthee/features/signin/widgets/token_signin_form.dart';
 import 'package:healthee/features/today/v02/today_header.dart';
 import 'package:healthee/shared/states/async_view.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
@@ -156,11 +158,19 @@ class _SignInBodyState extends ConsumerState<_SignInBody> {
   /// replaces the summary without the session having been cleared first.
   bool _replacing = false;
 
+  /// True once the owner has asked for the ⛔ transitional pasted-token form.
+  ///
+  /// Not a preference and not remembered: it lasts as long as this screen. The
+  /// path exists for an owner mid-migration and for a build with no identity
+  /// provider, and neither is a state to make comfortable.
+  bool _pastingToken = false;
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(serverSignInControllerProvider);
     final controller = ref.read(serverSignInControllerProvider.notifier);
     final session = widget.session;
+    final hasIdentity = ref.watch(identityAvailableProvider);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -173,15 +183,30 @@ class _SignInBodyState extends ConsumerState<_SignInBody> {
             onSignOut: () => unawaited(controller.signOut()),
             onReplace: () => setState(() => _replacing = true),
           )
-        else
-          ServerSignInForm(
-            // The stored server when there is one, so "use a different server"
-            // starts from what is actually in use rather than from the build's
-            // compiled-in default.
+        // The stored server when there is one, so "use a different server"
+        // starts from what is actually in use rather than from the build's
+        // compiled-in default.
+        else if (_pastingToken || !hasIdentity)
+          TokenSignInForm(
             initialUrl: session.baseUrl ?? Env.apiBaseUrl,
             enabled: !state.isBusy,
             onEdited: controller.clearFailure,
-            onSubmit: (url, token) => unawaited(_submit(url: url, token: token)),
+            configured: hasIdentity,
+            onUsePassword: hasIdentity
+                ? () => setState(() => _pastingToken = false)
+                : null,
+            onSubmit: (url, token) =>
+                unawaited(_submitToken(url: url, token: token)),
+          )
+        else
+          ServerSignInForm(
+            initialUrl: session.baseUrl ?? Env.apiBaseUrl,
+            enabled: !state.isBusy,
+            onEdited: controller.clearFailure,
+            onUseToken: () => setState(() => _pastingToken = true),
+            onSubmit: (url, email, password) => unawaited(
+              _submit(url: url, email: email, password: password),
+            ),
           ),
         if (state.failure case final failure?) ...<Widget>[
           const SectionGap(),
@@ -195,17 +220,39 @@ class _SignInBodyState extends ConsumerState<_SignInBody> {
     );
   }
 
-  /// Runs the check and leaves only if it landed.
-  ///
-  /// The `mounted` guard is not ceremony: the check is a network round trip and
-  /// this screen can be popped while it is in flight.
-  Future<void> _submit({required String url, required String token}) async {
+  /// Runs the sign-in and leaves only if it landed.
+  Future<void> _submit({
+    required String url,
+    required String email,
+    required String password,
+  }) async {
     final controller = ref.read(serverSignInControllerProvider.notifier);
-    final signedIn = await controller.signIn(url: url, token: token);
+    await _land(
+      await controller.signIn(url: url, email: email, password: password),
+    );
+  }
+
+  /// ⛔ TRANSITIONAL — the pasted-token path. See `data/api/server_session.dart`.
+  Future<void> _submitToken({
+    required String url,
+    required String token,
+  }) async {
+    final controller = ref.read(serverSignInControllerProvider.notifier);
+    await _land(await controller.signInWithToken(url: url, token: token));
+  }
+
+  /// Leaves only if the sign-in landed.
+  ///
+  /// The `mounted` guard is not ceremony: a sign-in is up to three network
+  /// round trips and this screen can be popped while they are in flight.
+  Future<void> _land(bool signedIn) async {
     if (!signedIn || !mounted) {
       return;
     }
-    setState(() => _replacing = false);
+    setState(() {
+      _replacing = false;
+      _pastingToken = false;
+    });
     widget.onDone?.call();
   }
 }

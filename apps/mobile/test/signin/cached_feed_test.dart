@@ -7,6 +7,7 @@ import 'package:healthee/data/api/cache_session.dart';
 import 'package:healthee/data/api/cached_account_read.dart';
 import 'package:healthee/data/api/credentials.dart';
 import 'package:healthee/data/api/server_snapshot.dart';
+import 'package:healthee/data/api/stored_server_session.dart';
 import 'package:healthee/data/store/local_store.dart';
 
 import '../pairing/_pairing_fakes.dart';
@@ -21,6 +22,7 @@ void main() {
     await credentials.setServerSession(
       baseUrl: 'https://test.example',
       token: 'a',
+      kind: StoredCredentialKind.shared,
     );
     api = AccountApi(dio = Dio(), await CacheSession.capture(credentials));
     store = LocalStore.memory();
@@ -92,6 +94,7 @@ void main() {
       await credentials.setServerSession(
         baseUrl: 'https://test.example',
         token: 'b',
+        kind: StoredCredentialKind.shared,
       );
       handler.reject(
         DioException.connectionError(

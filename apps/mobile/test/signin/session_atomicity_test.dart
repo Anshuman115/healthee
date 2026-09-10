@@ -52,15 +52,17 @@ void main() {
     await credentials.setServerSession(
       baseUrl: 'https://old.example',
       token: 'old-token',
+      kind: StoredCredentialKind.shared,
     );
     store.writeGate = Completer<void>();
     final changing = credentials.setServerSession(
       baseUrl: 'https://new.example',
       token: 'new-token',
+      kind: StoredCredentialKind.shared,
     );
     final dio = Dio(BaseOptions(baseUrl: 'https://default.example'));
     addTearDown(dio.close);
-    dio.interceptors.add(ServerSessionInterceptor(credentials));
+    dio.interceptors.add(ServerSessionInterceptor(credentials, null));
     dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) {
@@ -91,12 +93,14 @@ void main() {
       await credentials.setServerSession(
         baseUrl: 'https://old.example',
         token: 'old-token',
+        kind: StoredCredentialKind.shared,
       );
       store.fail = true;
       await expectLater(
         credentials.setServerSession(
           baseUrl: 'https://new.example',
           token: 'new-token',
+          kind: StoredCredentialKind.shared,
         ),
         throwsFormatException,
       );

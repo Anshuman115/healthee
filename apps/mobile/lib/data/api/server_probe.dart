@@ -42,13 +42,12 @@
 /// `test/signin/signin_secrecy_test.dart` is the proof.
 library;
 
-import 'dart:io';
-
 import 'package:dio/dio.dart';
 import 'package:healthee/core/env.dart';
 import 'package:healthee/core/logging.dart';
 import 'package:healthee/data/api/server_url.dart';
 import 'package:healthee/data/api/signin_failure.dart';
+import 'package:healthee/data/api/transport_failure.dart';
 
 /// The endpoint a sign-in is checked against. See the library docstring.
 const String kVerifyPath = '/api/entitlement';
@@ -95,7 +94,7 @@ class ServerProbe {
         ),
       );
     } on DioException catch (error) {
-      final failure = _unreachable(error, url.host);
+      final failure = unreachableFailure(error, url.host);
       // The TYPE and our own code; never the exception object, never the header.
       AppLog.failure(
         'signin',
@@ -110,9 +109,18 @@ class ServerProbe {
   /// Turns a status code into a yes, a refusal, or an honest "that is not us".
   void _judge(Response<String> response, ServerUrl url) {
     final status = response.statusCode ?? 0;
-    if (status == 401 || status == 403) {
+    if (status == 401) {
       AppLog.info('signin', '${url.host} refused the token (HTTP $status)');
       throw ServerSignInException(TokenRefused(status));
+    }
+    // **403 is not 401, and collapsing them costs an evening.** 401 says the
+    // credential is not one this server accepts. 403 says it read the credential,
+    // knows exactly whose it is, and will not serve that account — an uninvited
+    // signup or a suspension. Reported as a refused token, an owner whose email
+    // was simply not on the allowlist would go and reset a correct password.
+    if (status == 403) {
+      AppLog.info('signin', '${url.host} knows this account and refused it');
+      throw const ServerSignInException(ServerRefusedThisAccount());
     }
     if (status >= 200 && status < 300) {
       if (!_looksLikeJsonObject(response.data)) {
@@ -151,46 +159,5 @@ class ServerProbe {
     );
   }
 
-  /// Maps a transport failure to a reason the owner can act on.
-  ///
-  /// The wrapped cause is inspected BEFORE the dio type, because dio reports a
-  /// TLS handshake failure, a refused socket and a failed DNS lookup under the
-  /// same `connectionError` type — and those three send somebody to three
-  /// completely different places. Reading only `error.type` is exactly the
-  /// "a DioException type is not an error message" mistake.
-  static ServerSignInFailure _unreachable(DioException error, String host) {
-    return ServerUnreachable(reason: _reasonFor(error), host: host);
-  }
 
-  static UnreachableReason _reasonFor(DioException error) {
-    final cause = error.error;
-    if (cause is HandshakeException || cause is CertificateException) {
-      return UnreachableReason.tlsRejected;
-    }
-    if (error.type == DioExceptionType.badCertificate) {
-      return UnreachableReason.tlsRejected;
-    }
-    if (cause is SocketException) {
-      return _socketReason(cause);
-    }
-    return switch (error.type) {
-      DioExceptionType.connectionTimeout ||
-      DioExceptionType.sendTimeout ||
-      DioExceptionType.receiveTimeout => UnreachableReason.timedOut,
-      _ => UnreachableReason.unknown,
-    };
-  }
-
-  /// dart:io folds "no such host" and "nothing is listening" into one class and
-  /// separates them by errno. 111/61/10061 are Linux/macOS/Windows ECONNREFUSED;
-  /// a lookup failure carries no address at all.
-  static UnreachableReason _socketReason(SocketException error) {
-    const refusedCodes = {111, 61, 10061};
-    if (refusedCodes.contains(error.osError?.errorCode)) {
-      return UnreachableReason.refused;
-    }
-    return error.address == null
-        ? UnreachableReason.hostNotFound
-        : UnreachableReason.refused;
-  }
 }

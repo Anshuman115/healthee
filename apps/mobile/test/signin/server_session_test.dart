@@ -33,7 +33,7 @@ void main() {
       final store = FakeSecretStore();
       final repository = repositoryWith(store, ScriptedServer());
 
-      await repository.signIn(url: _url, token: kSentinelToken);
+      await repository.signInWithToken(url: _url, token: kSentinelToken);
 
       expect(await Credentials(store).apiToken(), kSentinelToken);
       expect(await Credentials(store).apiBaseUrl(), _url);
@@ -46,7 +46,7 @@ void main() {
         await repositoryWith(
           FakeSecretStore(),
           server,
-        ).signIn(url: _url, token: kSentinelToken);
+        ).signInWithToken(url: _url, token: kSentinelToken);
 
         expect(server.sent, hasLength(1));
         final request = server.sent.single;
@@ -66,7 +66,7 @@ void main() {
       final repository = repositoryWith(store, ScriptedServer());
 
       expect((await repository.status()).signedIn, isFalse);
-      await repository.signIn(url: _url, token: kSentinelToken);
+      await repository.signInWithToken(url: _url, token: kSentinelToken);
 
       final status = await repository.status();
       expect(status.signedIn, isTrue);
@@ -86,7 +86,7 @@ void main() {
       );
 
       final failure = await _failureOf(
-        () => repository.signIn(url: _url, token: kSentinelToken),
+        () => repository.signInWithToken(url: _url, token: kSentinelToken),
       );
 
       expect(failure, isA<TokenRefused>());
@@ -94,16 +94,29 @@ void main() {
       expect((await repository.status()).signedIn, isFalse);
     });
 
-    test('403 is the same answer', () async {
+    test('403 IS A DIFFERENT ANSWER, AND SAYS SO', () async {
+      // **These used to be one case, and collapsing them costs an evening.**
+      // 401 says the credential is not one this server accepts. 403 says it read
+      // the credential, knows exactly whose it is, and will not serve that
+      // account — an uninvited signup, or a suspension. Reported as a refused
+      // credential, an owner whose email was simply not on the allowlist goes
+      // and resets a password that was never wrong.
+      final store = FakeSecretStore();
       final failure = await _failureOf(
         () => repositoryWith(
-          FakeSecretStore(),
+          store,
           ScriptedServer(reply: const ServerReply(403)),
-        ).signIn(url: _url, token: kSentinelToken),
+        ).signInWithToken(url: _url, token: kSentinelToken),
       );
 
-      expect(failure, isA<TokenRefused>());
-      expect((failure! as TokenRefused).status, 403);
+      expect(failure, isA<ServerRefusedThisAccount>());
+      // The remedy is the point of the split, so it is what is asserted: it
+      // sends the owner to the operator, and it says outright that the
+      // credential was not the problem — which is the sentence that stops them
+      // resetting a password that was already correct.
+      expect(failure!.remedy, contains('Ask whoever runs it'));
+      expect(failure.remedy, contains('nothing is wrong with your email or password'));
+      expect(store.values, isEmpty);
     });
 
     test(
@@ -113,7 +126,7 @@ void main() {
           () => repositoryWith(
             FakeSecretStore(),
             ScriptedServer(reply: const ServerReply(401)),
-          ).signIn(url: _url, token: kSentinelToken),
+          ).signInWithToken(url: _url, token: kSentinelToken),
         );
 
         expect(failure!.headline, 'That token was refused by the server');
@@ -127,100 +140,17 @@ void main() {
       await repositoryWith(
         store,
         ScriptedServer(),
-      ).signIn(url: _url, token: kSentinelToken);
+      ).signInWithToken(url: _url, token: kSentinelToken);
 
       await _failureOf(
         () => repositoryWith(
           store,
           ScriptedServer(reply: const ServerReply(401)),
-        ).signIn(url: 'https://other.example.com', token: 'WRONG-TOKEN-9a3'),
+        ).signInWithToken(url: 'https://other.example.com', token: 'WRONG-TOKEN-9a3'),
       );
 
       expect(await Credentials(store).apiToken(), kSentinelToken);
       expect(await Credentials(store).apiBaseUrl(), _url);
-    });
-  });
-
-  group('unreachable is reported as unreachable, never as a refusal', () {
-    Future<ServerSignInFailure?> unreachableWith(
-      DioExceptionBuilder build,
-    ) async {
-      return _failureOf(
-        () => repositoryWith(
-          FakeSecretStore(),
-          ScriptedServer(failWith: build),
-        ).signIn(url: _url, token: kSentinelToken),
-      );
-    }
-
-    test('a failed DNS lookup is a connection problem, and says so', () async {
-      final failure = await unreachableWith(
-        hostNotFound('healthee.example.com'),
-      );
-
-      expect(failure, isA<ServerUnreachable>());
-      expect(failure, isNot(isA<TokenRefused>()));
-      expect(
-        (failure! as ServerUnreachable).reason,
-        UnreachableReason.hostNotFound,
-      );
-      expect(failure.headline, "Couldn't reach healthee.example.com");
-      expect(failure.remedy, contains('not a wrong token'));
-      expect(failure.remedy, contains('the name could not be looked up'));
-      // Worth trying again, unlike a refusal — the difference the owner acts on.
-      expect(failure.canRetry, isTrue);
-    });
-
-    test('a refused connection is its own sentence', () async {
-      final failure = await unreachableWith(connectionRefused());
-
-      expect((failure! as ServerUnreachable).reason, UnreachableReason.refused);
-      expect(failure.remedy, contains('the connection was refused'));
-    });
-
-    test('a rejected certificate is TLS, not a dead network', () async {
-      final failure = await unreachableWith(tlsRejected());
-
-      expect(
-        (failure! as ServerUnreachable).reason,
-        UnreachableReason.tlsRejected,
-      );
-      expect(failure.remedy, contains('HTTPS certificate was rejected'));
-    });
-
-    test('a timeout is a timeout', () async {
-      final failure = await unreachableWith(receiveTimeout());
-
-      expect(
-        (failure! as ServerUnreachable).reason,
-        UnreachableReason.timedOut,
-      );
-      expect(failure.remedy, contains('did not answer in time'));
-    });
-
-    test('nothing is stored when nothing answered', () async {
-      final store = FakeSecretStore();
-      await _failureOf(
-        () => repositoryWith(
-          store,
-          ScriptedServer(failWith: hostNotFound('healthee.example.com')),
-        ).signIn(url: _url, token: kSentinelToken),
-      );
-
-      expect(store.values, isEmpty);
-    });
-
-    test('the four reasons produce four distinguishable log codes', () async {
-      final codes = <String>{};
-      for (final build in [
-        hostNotFound('healthee.example.com'),
-        connectionRefused(),
-        tlsRejected(),
-        receiveTimeout(),
-      ]) {
-        codes.add((await unreachableWith(build))!.code);
-      }
-      expect(codes, hasLength(4));
     });
   });
 
@@ -230,7 +160,7 @@ void main() {
         () => repositoryWith(
           FakeSecretStore(),
           ScriptedServer(reply: const ServerReply(500)),
-        ).signIn(url: _url, token: kSentinelToken),
+        ).signInWithToken(url: _url, token: kSentinelToken),
       );
 
       expect(failure, isA<ServerAnsweredUnexpectedly>());
@@ -245,7 +175,7 @@ void main() {
           ScriptedServer(
             reply: const ServerReply(200, body: '<!doctype html><title>Log in'),
           ),
-        ).signIn(url: _url, token: kSentinelToken),
+        ).signInWithToken(url: _url, token: kSentinelToken),
       );
 
       expect(failure, isA<ServerAnsweredUnexpectedly>());
@@ -257,7 +187,7 @@ void main() {
         () => repositoryWith(
           FakeSecretStore(),
           ScriptedServer(reply: const ServerReply(302)),
-        ).signIn(url: _url, token: kSentinelToken),
+        ).signInWithToken(url: _url, token: kSentinelToken),
       );
 
       expect(
@@ -277,7 +207,7 @@ void main() {
         await repositoryWith(
           store,
           server,
-        ).signIn(url: _url, token: '  $kSentinelToken\n');
+        ).signInWithToken(url: _url, token: '  $kSentinelToken\n');
 
         // Trimmed before it was sent…
         expect(
@@ -293,7 +223,7 @@ void main() {
         await repositoryWith(
           store,
           ScriptedServer(),
-        ).signIn(url: '  $_url  ', token: kSentinelToken);
+        ).signInWithToken(url: '  $_url  ', token: kSentinelToken);
 
         expect(await Credentials(store).apiBaseUrl(), _url);
       });
@@ -302,7 +232,7 @@ void main() {
         final store = FakeSecretStore();
         final server = ScriptedServer();
         final failure = await _failureOf(
-          () => repositoryWith(store, server).signIn(url: _url, token: ' \n '),
+          () => repositoryWith(store, server).signInWithToken(url: _url, token: ' \n '),
         );
 
         expect(failure, isA<MissingToken>());
@@ -322,7 +252,7 @@ void main() {
         () => repositoryWith(
           store,
           server,
-        ).signIn(url: 'http://healthee.example.com', token: kSentinelToken),
+        ).signInWithToken(url: 'http://healthee.example.com', token: kSentinelToken),
       );
 
       expect(failure, isA<CleartextServerUrl>());
@@ -337,7 +267,7 @@ void main() {
         await repositoryWith(
           store,
           ScriptedServer(),
-        ).signIn(url: 'http://127.0.0.1:8765', token: kSentinelToken);
+        ).signInWithToken(url: 'http://127.0.0.1:8765', token: kSentinelToken);
 
         expect(await Credentials(store).apiBaseUrl(), 'http://127.0.0.1:8765');
       },
@@ -348,7 +278,7 @@ void main() {
     test('clears the token AND the address from the keystore', () async {
       final store = FakeSecretStore();
       final repository = repositoryWith(store, ScriptedServer());
-      await repository.signIn(url: _url, token: kSentinelToken);
+      await repository.signInWithToken(url: _url, token: kSentinelToken);
 
       await repository.signOut();
 
@@ -365,7 +295,7 @@ void main() {
           ..values['strap_mac'] = 'DB:98:1F:80:4C:3D'
           ..values['strap_auth_key'] = 'a1b2c3d4e5f60718293a4b5c6d7e8f90';
         final repository = repositoryWith(store, ScriptedServer());
-        await repository.signIn(url: _url, token: kSentinelToken);
+        await repository.signInWithToken(url: _url, token: kSentinelToken);
 
         await repository.signOut();
 

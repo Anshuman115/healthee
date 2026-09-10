@@ -217,7 +217,8 @@ void main() {
       await _pumpAt(tester, 390, Routes.serverSignIn);
       expectPaintedOrder(tester, <Finder>[
         find.text('A private connection'),
-        find.text('Sign in to your server'),
+        // The no-provider build's form; see `settings_screen_test.dart`.
+        find.text('Sign in with an API token'),
         find.text('Server address'),
         find.text('API token'),
         find.text('Check and sign in'),

@@ -59,7 +59,7 @@ final class ServerSessionRepositoryProvider
 }
 
 String _$serverSessionRepositoryHash() =>
-    r'9fe2b153b6f0ca6985459be1b1d155f3513f88f2';
+    r'805db15948b958444672d3f5b3708a4af2ba9c7a';
 
 /// Whether this phone is signed in, for anything that wants to say so.
 ///
