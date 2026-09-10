@@ -23,6 +23,7 @@ import 'package:healthee/data/api/server_session.dart';
 import 'package:healthee/data/api/server_snapshot.dart';
 import 'package:healthee/data/challenges/challenge_feed.dart';
 import 'package:healthee/data/challenges/commitment_repository.dart';
+import 'package:healthee/data/challenges/health_program.dart';
 import 'package:healthee/data/challenges/program_feed.dart';
 import 'package:healthee/data/gps/gps_recorder.dart';
 import 'package:healthee/data/gps/gps_recording_state.dart';
@@ -93,6 +94,7 @@ Widget todayHost(
   SleepPage? sleep,
   SleepConsistency? consistency,
   LastKnown<double>? lastKnownBioAge,
+  List<HealthProgram> suggestedPrograms = const [],
   DatedHistory? history,
 }) {
   return _scoped(
@@ -104,7 +106,7 @@ Widget todayHost(
     signedIn: signedIn,
     sleep: sleep,
     consistency: consistency,
-    lastKnownBioAge: lastKnownBioAge,
+    lastKnownBioAge: lastKnownBioAge, suggestedPrograms: suggestedPrograms,
     history: history,
     child: MaterialApp(
       theme: themeOverride ?? AppTheme.light,
@@ -169,6 +171,7 @@ Widget _scoped(
   SleepPage? sleep,
   SleepConsistency? consistency,
   LastKnown<double>? lastKnownBioAge,
+  List<HealthProgram> suggestedPrograms = const [],
   DatedHistory? history,
 }) {
   return ProviderScope(
@@ -177,8 +180,7 @@ Widget _scoped(
       // The real provider walks the cached-payload table through
       // `TodayRepository`, which reaches `credentialsProvider` and the api
       // client — a keystore and a socket a `flutter test` host does not have.
-      // The walk itself has its own suite against a memory store
-      // (`test/store/last_known_test.dart`).
+      // The walk has its own suite (`test/store/last_known_test.dart`).
       lastKnownBiologicalAgeProvider.overrideWith(
         (ref) async => lastKnownBioAge,
       ),
@@ -198,7 +200,7 @@ Widget _scoped(
       programFeedProvider.overrideWith(
         (ref) => Stream.value(
           ServerSnapshot(
-            const ProgramFeed(active: null, suggested: [], recent: []),
+            ProgramFeed(active: null, suggested: suggestedPrograms, recent: const []),
             fetchedAt: now,
           ),
         ),

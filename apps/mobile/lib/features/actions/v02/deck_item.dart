@@ -15,6 +15,7 @@ import 'package:healthee/core/theme/tone.dart';
 import 'package:healthee/data/api/account_api.dart';
 import 'package:healthee/data/challenges/challenge.dart';
 import 'package:healthee/data/challenges/commitment_repository.dart';
+import 'package:healthee/data/challenges/health_program.dart';
 import 'package:healthee/data/honesty/citations.dart';
 import 'package:healthee/data/models/recommendation.dart';
 import 'package:healthee/data/recommendations/recommendation_history.dart';
@@ -100,6 +101,59 @@ class DeckItem {
     grade: null,
     adopt: () async {
       await repository.challengeAction(challenge.id, 'adopt');
+      ref.invalidate(commitmentRepositoryProvider);
+    },
+  );
+
+  /// From a suggested PROGRAM — a ladder of rungs rather than one commitment.
+  ///
+  /// ⛔ **Programs had no route to any screen at all.** The deck was built for
+  /// recommendations, extended to carry suggested challenges, and never extended
+  /// again — so `create_program` wrote a ladder in `suggested`, the feed served
+  /// it correctly, and nothing drew it. `actions_screen.dart` mounts only the
+  /// RUNNING section, on the stated principle that "what was merely on offer is
+  /// in the deck above"; the deck simply never learned about this third feed.
+  ///
+  /// Found because the coach designed a six-week ladder and the owner could not
+  /// find it anywhere in the app. It is why the program is still `suggested`
+  /// with no `adopted_at`: there was never a button to press.
+  ///
+  /// What differs from a challenge is the honest part: a ladder does not commit
+  /// you to one target, it commits you to a SEQUENCE. So the horizon is the
+  /// program's weeks, and the line that says what you are signing up to names
+  /// the rung count rather than a single number that would be only the first
+  /// step's.
+  factory DeckItem.program(
+    HealthProgram program,
+    CommitmentRepository repository,
+    WidgetRef ref,
+  ) => DeckItem(
+    horizon: program.weeks == null ? 'Program' : '${program.weeks}-week',
+    meta: 'PROGRAM',
+    adopted: program.status == 'active',
+    payoff: program.goal,
+    window: program.weeks == null ? null : '${program.weeks}-week',
+    tone: Tone.movement,
+    icon: SolarIconsOutline.flag,
+    title: program.title,
+    body: program.why,
+    // The SEQUENCE, not a target. Naming one number here would quote the first
+    // rung as if it were the commitment, and the whole point of a ladder is that
+    // the target moves.
+    raisedBy:
+        '${program.rungs.length} rungs, one at a time'
+        '${program.goal == null ? '' : ' · ${program.goal}'}',
+    // A ladder has no citations of its own — its evidence is whatever its RUNGS
+    // cite, so they are merged rather than a grounding being invented for it. An
+    // empty result is the honest one for a program whose rungs cite nothing.
+    grounding: groundingOfAll(<String?>[
+      program.why,
+      for (final rung in program.rungs) rung.why,
+    ]),
+    rationale: program.why,
+    grade: null,
+    adopt: () async {
+      await repository.programAction(program.id, 'adopt');
       ref.invalidate(commitmentRepositoryProvider);
     },
   );

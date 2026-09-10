@@ -38,6 +38,7 @@ import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale.dart';
 import 'package:healthee/data/challenges/challenge.dart';
 import 'package:healthee/data/challenges/commitment_repository.dart';
+import 'package:healthee/data/challenges/health_program.dart';
 import 'package:healthee/data/models/recommendation.dart';
 import 'package:healthee/features/actions/v02/deck_item.dart';
 import 'package:healthee/features/actions/v02/suggestion_row.dart';
@@ -65,12 +66,22 @@ class _SuggestionListState extends ConsumerState<SuggestionList> {
   Widget build(BuildContext context) {
     final repository = ref.watch(commitmentRepositoryProvider).value;
     final challenges = ref.watch(challengeFeedProvider).value?.data;
+    final programs = ref.watch(programFeedProvider).value?.data;
     final items = <DeckItem>[
       for (final rec in widget.recommendations)
         DeckItem.recommendation(rec, ref),
       if (repository != null)
         for (final challenge in challenges?.suggested ?? const <Challenge>[])
           DeckItem.challenge(challenge, repository, ref),
+      // ⛔ The third feed, which had no route to any screen. `actions_screen`
+      // mounts only the RUNNING section on the principle that "what was merely
+      // on offer is in the deck above" — and the deck knew about two feeds of
+      // the three, so a program the coach designed was stored, served, and drawn
+      // nowhere. LAST, because a ladder is the longest horizon on the screen and
+      // the deck reads shortest-first.
+      if (repository != null)
+        for (final program in programs?.suggested ?? const <HealthProgram>[])
+          DeckItem.program(program, repository, ref),
     ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
