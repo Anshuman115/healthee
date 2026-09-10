@@ -24,8 +24,39 @@ paths = [
 ]
 
 # Obvious placeholder tokens used across docs/examples.
+#
+# ⛔ **Values, not paths.** It would be one line to allowlist `apps/mobile/test/.*`
+# and make the twelve findings below go away — and it would blind the scanner to a
+# real key pasted into a test, which is one of the likelier ways a secret gets
+# committed. Naming the four literals keeps every OTHER high-entropy string in
+# those files a failure.
+#
+# The strap AUTHKEY is 16 bytes of hex, so a realistic fixture is by definition
+# high-entropy and `generic-api-key` cannot tell it from the real thing. These four
+# are each verifiably not:
+#
+#   a1b2c3d4e5f60718293a4b5c6d7e8f90  the project's synthetic strap key — read the
+#                                     nibbles: a1 b2 c3 d4 e5 f6 …
+#   000102030405060708090a0b0c0d0e0f  FIPS-197 C.1 AES-128 key
+#   00112233445566778899aabbccddeeff  FIPS-197 C.1 plaintext
+#   69c4e0d86a7b0430d8cdb78070b4c55a  FIPS-197 C.1 ciphertext
+#
+# The last three are the AES known-answer vector from the published NIST standard —
+# the most public numbers in cryptography, and `test/ble/huami_crypto_test.dart`
+# cites the section they come from.
 regexes = [
   '''change-me-please''',
   '''your-[a-z-]+-here''',
   '''<[a-z-]+>''',
+  '''a1b2c3d4e5f60718293a4b5c6d7e8f90''',
+  '''000102030405060708090a0b0c0d0e0f''',
+  '''00112233445566778899aabbccddeeff''',
+  '''69c4e0d86a7b0430d8cdb78070b4c55a''',
+  # A dead fixture. `tests/test_auth_config.py` briefly used this as its stand-in
+  # for a JWT secret, which tripped `generic-api-key` on the SUPABASE_JWT_SECRET=
+  # keyword; the file now uses an obviously word-shaped value instead. It survives
+  # only inside commit caf477f, which this scan still walks. Listed rather than
+  # rebased away because the string was never a secret — it is the fixture whose
+  # entire job in that test is to NOT appear in the response.
+  '''the-jwt-signing-secret-0123456789''',
 ]

@@ -18,6 +18,11 @@ from healthee.api.routers import auth
 from healthee.core.config import get_settings
 
 _ANON = "anon-key-that-is-published-on-purpose"
+# Deliberately word-shaped and low-entropy. A realistic-looking fixture here trips
+# gitleaks' `generic-api-key` on the `SUPABASE_JWT_SECRET=` keyword, and the honest
+# fix is a fixture that could not be mistaken for a key rather than an allowlist
+# entry teaching the scanner to ignore that name.
+_JWT_SECRET = "not-a-real-signing-secret-only-a-fixture"
 
 
 @pytest.fixture
@@ -119,13 +124,13 @@ def test_THE_SERVICE_ROLE_KEY_IS_NEVER_SERVED(  # noqa: N802
         SUPABASE_PROJECT_REF="abcdef",
         SUPABASE_ANON_KEY=_ANON,
         SUPABASE_SERVICE_ROLE_KEY=secret,
-        SUPABASE_JWT_SECRET="the-jwt-signing-secret-0123456789",
+        SUPABASE_JWT_SECRET=_JWT_SECRET,
     )
 
     body = client.get("/api/auth-config").text
 
     assert secret not in body
-    assert "the-jwt-signing-secret-0123456789" not in body
+    assert _JWT_SECRET not in body
     assert set(client.get("/api/auth-config").json()) == {"supabase_url", "supabase_anon_key"}
 
 
