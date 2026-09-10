@@ -13,7 +13,7 @@ that has all three. It uses the ledger's estimator and the ledger's line.
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from uuid import UUID, uuid4
 
 import pytest
@@ -158,7 +158,7 @@ def test_a_FRESH_commitment_has_no_outcome_yet(db: None) -> None:  # noqa: ARG00
     assert out.delta is None
 
 
-def _made_on(uid: UUID, commitment_id: int, day: date) -> None:
+def _backdate(uid: UUID, commitment_id: int, day: date) -> None:
     """Backdate a commitment, because the block anchors the window on `created_at`.
 
     A commitment recorded a moment ago has zero days of "after" whatever the metric
@@ -187,7 +187,7 @@ def test_the_rendered_block_states_the_delta_and_the_day_counts(db: None) -> Non
         _seed(uid, since + timedelta(days=i), 9000)
     commitments.record(uid, _TZ, "walk after dinner", _METRIC, 7)
     (c,) = commitments.open_commitments(uid)
-    _made_on(uid, c.id, since)
+    _backdate(uid, c.id, since)
     commitments.resolve(uid, c.id, "kept")
 
     block = _kept_block(uid)
@@ -219,3 +219,17 @@ def test_an_insufficient_outcome_RENDERS_no_number(db: None) -> None:  # noqa: A
     assert "→" not in block
     assert "5000" not in block
     assert "9000" not in block
+
+
+def test_the_window_is_anchored_on_THEIR_day_not_UTC(db: None) -> None:  # noqa: ARG001, N802
+    """A `TIMESTAMPTZ` read as a UTC date moves the anchor by one for half the world.
+
+    02:00 in Kolkata is 20:30 the previous day in UTC. The anchor is what splits
+    before from after, so the naive reading files the first day of the change as
+    part of its own baseline — a whole day, for every owner east of Greenwich who
+    talks to the coach at night.
+    """
+    made = datetime(2026, 9, 8, 20, 30, tzinfo=UTC)  # 2026-09-09 02:00 in Kolkata
+
+    assert coach_context._made_on(made, "Asia/Kolkata") == date(2026, 9, 9)  # noqa: SLF001
+    assert coach_context._made_on(made, "UTC") == date(2026, 9, 8)  # noqa: SLF001

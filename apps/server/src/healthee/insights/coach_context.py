@@ -18,9 +18,10 @@ caveats that make it honest are structural and argued in that module.
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 from uuid import UUID
+from zoneinfo import ZoneInfo
 
 from healthee.core.db import tenant_transaction
 from healthee.core.tenancy import user_today
@@ -114,7 +115,7 @@ def _kept_outcomes_block(user_id: UUID, tz: str) -> str:
         if c.metric is None:  # `kept_with_metric` filters these out; belt and braces
             continue
         out = commitment_outcome.outcome_for(
-            user_id, tz, c.id, c.stated, c.metric, _as_date(c.created_at)
+            user_id, tz, c.id, c.stated, c.metric, _made_on(c.created_at, tz)
         )
         if out.confidence == commitment_outcome.INSUFFICIENT:
             lines.append(
@@ -138,9 +139,19 @@ def _kept_outcomes_block(user_id: UUID, tz: str) -> str:
     return "\n".join(lines)
 
 
-def _as_date(value: Any) -> date:
-    """`created_at` as a local date — the day the change starts."""
-    return value.date() if hasattr(value, "date") else value
+def _made_on(value: Any, tz: str) -> date:
+    """`created_at` as the day it was THEIR day, not UTC's.
+
+    `created_at` is a `TIMESTAMPTZ`, so `.date()` on it is the UTC calendar date.
+    For an owner five and a half hours ahead, a commitment made at 02:00 their time
+    is the previous day in UTC — and this date anchors the before/after window, so
+    the skew moves a day of the change into its own baseline. The instant is
+    converted to their zone first, which is the same rule every other calendar
+    boundary in this app follows.
+    """
+    if not isinstance(value, datetime):
+        return value
+    return value.astimezone(ZoneInfo(tz)).date()
 
 
 def _recovery_block(recovery: dict | None, tz: str) -> str:
