@@ -29,7 +29,7 @@ from healthee.analytics.series import daily_series, event_days
 from healthee.core.db import tenant_transaction
 from healthee.core.logging import get_logger
 from healthee.core.tenancy import user_today
-from healthee.insights import challenge_tools, manifest
+from healthee.insights import challenge_tools, manifest, program_tools
 from healthee.insights.retrieval import rank_notes
 from healthee.insights.tool_spec import function_tool
 from healthee.read.logs import LogRequest, record_log
@@ -40,7 +40,9 @@ log = get_logger(__name__)
 # The action tools — a claim of "logged/started/adopted/created" is only truthful if
 # one of these ran AND returned ok this turn (the anti-hallucination guard keys off
 # this set, and ``coach._CLAIM_TOOLS`` narrows it per claim).
-ACTION_TOOLS: frozenset[str] = frozenset({"log_entry"}) | challenge_tools.ACTION_TOOLS
+ACTION_TOOLS: frozenset[str] = (
+    frozenset({"log_entry"}) | challenge_tools.ACTION_TOOLS | program_tools.ACTION_TOOLS
+)
 
 _METRIC_HINT = (
     "rhr_daily, hrv_sleep_avg, sleep_health_score_4dim, sleep_regularity_index, "
@@ -134,6 +136,9 @@ COACH_TOOLS: list[dict] = [
     # rather than re-declared so ``COACH_TOOLS`` stays the ONE list of what the model is
     # offered — ``tests/insights/test_coach_prompt.py`` pins the persona against it.
     *challenge_tools.CHALLENGE_TOOLS,
+    # WP-C4b's pair, same argument one horizon longer: a ladder is designed by the
+    # generator from the owner's own baseline, never by the model in conversation.
+    *program_tools.PROGRAM_TOOLS,
 ]
 
 
@@ -166,6 +171,8 @@ def execute_tool(name: str, args: dict[str, Any], user_id: UUID, tz: str) -> dic
         return get_knowledge(args.get("topic"), args.get("note_id"))
     if name in challenge_tools.TOOL_NAMES:
         return challenge_tools.execute(name, args, user_id, tz)
+    if name in program_tools.TOOL_NAMES:
+        return program_tools.execute(name, args, user_id, tz)
     log.warning("coach requested unknown tool %s", name)
     return {"error": f"unknown tool {name}"}
 

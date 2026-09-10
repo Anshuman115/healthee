@@ -77,6 +77,7 @@ services:
       # Entitlement (§12). Premium is the `subscription` table; this flag is the
       # self-hosted deployment-wide override and must be false on the hosted box.
       SELF_HOST_UNLOCKED: ${SELF_HOST_UNLOCKED:-false}
+      PREMIUM_COACH_QUESTIONS: ${PREMIUM_COACH_QUESTIONS:-20}
       UPGRADE_URL: ${UPGRADE_URL:-}
       # LLM. The model ids are REQUIRED whenever the key is set: a blank id is
       # forwarded to OpenRouter verbatim and comes back a 400. The API now REFUSES
@@ -193,6 +194,7 @@ services:
       # install would serve its owner the AI layer over HTTP while the nightly
       # chain silently generated nothing for them.
       SELF_HOST_UNLOCKED: ${SELF_HOST_UNLOCKED:-false}
+      PREMIUM_COACH_QUESTIONS: ${PREMIUM_COACH_QUESTIONS:-20}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}

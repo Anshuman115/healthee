@@ -124,6 +124,19 @@ class Settings(BaseSettings):
     # the API and the scheduler, so a hosted box that sets it by accident says so on
     # every boot rather than quietly giving the AI layer away.
     self_host_unlocked: bool = False
+    # How many coach questions a PREMIUM owner gets per rolling 30 days.
+    #
+    # 20 is not a round number, it is a measured one: a coach question costs $0.179
+    # (#105 measured it and failed to make it cheaper), so 20 is $3.58 against a
+    # $6.99 price and 30 would be $5.37 — PRICING.md §1 does that arithmetic.
+    #
+    # **Zero means UNLIMITED**, and that is the honest setting for a self-hoster:
+    # the cap's whole justification is OUR LLM bill on OUR hosted service, an
+    # argument that does not survive contact with somebody paying their own
+    # OpenRouter key — the same argument `self_host_unlocked` above already makes.
+    # It is a separate switch because the two are separable: a box can be somebody's
+    # own and still want a bound on spend.
+    premium_coach_questions: int = 20
     # Where a locked card sends someone. Carried in the 402 body and by
     # `/api/entitlement` so the upgrade destination is deployment config rather than a
     # URL compiled into the app — a self-hoster has no checkout page to point at, and

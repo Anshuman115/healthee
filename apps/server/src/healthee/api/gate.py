@@ -129,7 +129,20 @@ FREE_ALLOWANCE: dict[str, int] = {
 # purpose and priced, not forgotten: $0.0084 a card, and a fixed $1.27/owner/month for the
 # nightly chain, both inside the price. A 0 here would hard-lock a paying owner.
 PREMIUM_COACH_QUESTIONS = 20
-PREMIUM_ALLOWANCE: dict[str, int] = {COACH: PREMIUM_COACH_QUESTIONS}
+
+
+def premium_allowance() -> dict[str, int]:
+    """What a PREMIUM owner gets, per feature, per rolling window.
+
+    A function, not a constant: the coach cap is deployment config, and
+    `core.config.premium_coach_questions` carries the argument for why. **0 means
+    unlimited and is expressed by ABSENCE**, the way this module already expresses
+    it — a `0` left in the mapping would read as "capped at zero", which is the
+    exact confusion `AIGate` warns about at its `.get`.
+    """
+    capped = get_settings().premium_coach_questions
+    return {COACH: capped} if capped > 0 else {}
+
 
 # The cap's window: rolling THIRTY LOCAL days in the owner's zone, not a calendar month.
 # It reuses `core.allowance`, already locked, tested and timezone-correct, so the cap is a
@@ -147,15 +160,13 @@ _CHARGED_ATTR = "healthee_allowance_charged"
 
 # `/api/today` and `/api/sleep/consistency` are free endpoints carrying one AI field
 # each. Named here, next to the gate, because the omission and the 402 are one policy.
-TODAY_AI_FIELDS: tuple[str, ...] = ("action", "recommendations")
-SLEEP_CONSISTENCY_AI_FIELDS: tuple[str, ...] = ("tonight",)
 
 # The key the stripped payload carries instead. Its presence IS the signal — a premium
 # payload has no `locked` key at all, so the shapes differ without inspecting values.
 LOCKED_KEY = "locked"
 
 
-def _locked_body(feature: str) -> dict:
+def locked_body(feature: str) -> dict:
     """The HARD-LOCK body — the AI layer is the paid tier and the way in is to pay.
 
     Same shape in the 402 and in a stripped payload. It carries the ``upgrade`` URL and
@@ -240,7 +251,7 @@ class AIGate:
         ``.get`` returning ``None`` means UNLIMITED, so this reads it with ``is None`` and
         not a falsy check — which would turn "not capped" into "capped at zero".
         """
-        limit = PREMIUM_ALLOWANCE.get(self.feature)
+        limit = premium_allowance().get(self.feature)
         if limit is None:
             return user
         verdict = allowance.spend(
@@ -270,7 +281,7 @@ class AIGate:
         limit = FREE_ALLOWANCE.get(self.feature, 0)
         if limit <= 0:
             log.info("402 %s for %s — not premium, no free allowance", self.feature, user.id)
-            raise HTTPException(status_code=402, detail=_locked_body(self.feature))
+            raise HTTPException(status_code=402, detail=locked_body(self.feature))
         verdict = allowance.spend(user.id, user.timezone, self.feature, limit)
         if not verdict.allowed:
             log.info("402 %s for %s — free allowance spent", self.feature, user.id)
@@ -338,33 +349,6 @@ def _has_free_use(user: RequestUser, feature: str, limit: int) -> bool:
     return allowance.peek(user.id, user.timezone, feature, limit).allowed
 
 
-def strip_ai_fields(payload: dict, fields: tuple[str, ...], feature: str) -> dict:
-    """Remove ``fields`` from a free endpoint's payload and mark what was withheld.
-
-    ``pop``, not ``= None``: §12.7's closure for "sniff the response for the AI fields
-    the app hides" is that the data is not in the response at all. A null would still
-    tell a client the field exists, and a future refactor could reintroduce a value into
-    a key the client already parses.
-
-    Mutates and returns the same dict — these payloads are the ~20 KB aggregates the
-    standards exempt from response models, and copying one to delete two keys would be
-    a measurable cost for no gain.
-    """
-    for field in fields:
-        payload.pop(field, None)
-    payload[LOCKED_KEY] = _locked_body(feature)
-    return payload
-
-
-def gate_free_payload(
-    user: RequestUser, payload: dict, fields: tuple[str, ...], feature: str
-) -> dict:
-    """Serve the whole payload to a premium owner; strip ``fields`` for everyone else."""
-    if is_premium(user.id):
-        return payload
-    return strip_ai_fields(payload, fields, feature)
-
-
 # The gated identities, one per feature. An endpoint takes ONE of these in place of
 # `CurrentUser`; taking `CurrentUser` on an AI route is what the completeness test fails.
 CoachUser = Annotated[RequestUser, Depends(AIGate(COACH))]
@@ -381,20 +365,17 @@ __all__ = [
     "FREE_ALLOWANCE",
     "INSIGHT",
     "LOCKED_KEY",
+    "locked_body",
     "NOTABLE",
-    "PREMIUM_ALLOWANCE",
+    "premium_allowance",
     "PREMIUM_COACH_QUESTIONS",
     "PREMIUM_WINDOW_DAYS",
-    "SLEEP_CONSISTENCY_AI_FIELDS",
-    "TODAY_AI_FIELDS",
     "AIGate",
     "ChallengeUser",
     "CoachUser",
     "DailyActionUser",
     "InsightUser",
     "NotableUser",
-    "gate_free_payload",
     "locked_features",
     "refund_ai_use",
-    "strip_ai_fields",
 ]

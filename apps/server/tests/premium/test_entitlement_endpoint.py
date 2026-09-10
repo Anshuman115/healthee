@@ -18,6 +18,7 @@ from tests.premium.conftest import AUTH
 
 from healthee.api import gate
 from healthee.api.routers.entitlement import ALL_FEATURES
+from healthee.core.config import get_settings
 
 pytestmark = pytest.mark.integration
 
@@ -60,7 +61,8 @@ def test_a_capped_premium_owner_is_still_shown_nothing_to_upgrade_to(
     (``test_premium_cap.py``). A capped owner listed here would render as an upgrade card
     and pitch a subscription at a subscriber.
     """
-    monkeypatch.setitem(gate.PREMIUM_ALLOWANCE, gate.COACH, 1)
+    monkeypatch.setenv("PREMIUM_COACH_QUESTIONS", "1")
+    get_settings.cache_clear()
     question = {"messages": [{"role": "user", "content": "hi"}]}
     assert bed.post("/api/coach", json=question, headers=AUTH).status_code == 200
     assert bed.post("/api/coach", json=question, headers=AUTH).status_code == 402, (

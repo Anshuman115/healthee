@@ -93,7 +93,8 @@ def included_allowances(user: RequestUser) -> list[IncludedAllowance]:
     """
     if not is_premium(user.id):
         return []
-    return [_meter(user, feature, limit) for feature, limit in gate.PREMIUM_ALLOWANCE.items()]
+    allowed = gate.premium_allowance()
+    return [_meter(user, feature, limit) for feature, limit in allowed.items()]
 
 
 def _meter(user: RequestUser, feature: str, limit: int) -> IncludedAllowance:
