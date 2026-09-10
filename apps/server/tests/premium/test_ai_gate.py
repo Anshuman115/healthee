@@ -111,6 +111,14 @@ FREE_PATHS: dict[str, str] = {
         "lost phone is worse off than one who never signed up."
     ),
     "/api/entitlement": "the paywall's own status; a locked-out owner must be able to read it",
+    "/api/auth-config": (
+        "which identity provider to sign in against. UNAUTHENTICATED, and it cannot be "
+        "otherwise: it is the call a client makes in order to learn how to authenticate, "
+        "so requiring a credential would be circular. It serves two values that are "
+        "public by construction — a project URL and the ANON key, which authorises "
+        "nothing on its own — and never the service-role key or the JWT secret, which "
+        "`tests/test_auth_config.py` asserts by name."
+    ),
 }
 
 

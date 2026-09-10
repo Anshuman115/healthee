@@ -1,4 +1,8 @@
-"""Identity HTTP layer — GET /api/me and POST /api/device (Supabase-JWT auth).
+"""Identity HTTP layer — who this deployment is, and who you are on it.
+
+`GET /api/auth-config` is the one **unauthenticated** endpoint here, and it has to
+be: a client needs to know which identity provider to sign in against BEFORE it can
+present a credential. Everything else takes a Supabase JWT.
 
 Thin by design (standards §2): the `current_user` dependency verifies the Supabase
 access JWT and resolves the tenant, the handler shapes one typed response. No SQL
@@ -22,6 +26,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
+from healthee.core.config import get_settings
 from healthee.core.device_token import (
     list_device_tokens,
     mint_device_token,
@@ -55,6 +60,68 @@ class DeviceTokenResponse(BaseModel):
 
     device_token: str
     id: UUID
+
+
+class AuthConfigResponse(BaseModel):
+    """Which identity provider to sign in against, or that there is not one."""
+
+    supabase_url: str | None
+    supabase_anon_key: str | None
+
+
+def _supabase_url() -> str:
+    """The project URL, explicit or derived from the project ref.
+
+    Hosted Supabase is always `https://<ref>.supabase.co`, so a deployment that
+    already configured `SUPABASE_PROJECT_REF` for JWT verification does not have to
+    repeat itself. `SUPABASE_URL` is for a self-hosted GoTrue, which has no ref.
+    """
+    settings = get_settings()
+    if settings.supabase_url:
+        return settings.supabase_url.rstrip("/")
+    if settings.supabase_project_ref:
+        return f"https://{settings.supabase_project_ref}.supabase.co"
+    return ""
+
+
+@router.get("/auth-config", response_model=AuthConfigResponse)
+def auth_config() -> AuthConfigResponse:
+    """The identity provider this server expects its app to use. **Unauthenticated.**
+
+    ## Why this is public, and why that is not a leak
+
+    Both values are public by construction. The URL names a project. The **anon**
+    key is the one Supabase documents as shipping inside clients: it identifies the
+    project and authorises nothing on its own, because every row policy still
+    applies to whatever it is used to request. The key that bypasses policies is
+    `service_role`, it is configured separately, and it is served nowhere.
+
+    It cannot be authenticated even in principle — this is the call a client makes
+    in order to find out how to authenticate.
+
+    ## Why it exists
+
+    Without it the app must be COMPILED against one Supabase project, which makes a
+    published APK the author's app rather than anybody's: install it and you are
+    pointed at their identity provider and their server. For a product whose claim
+    is self-hosting, that is backwards. With it, the owner types their server
+    address and the app learns the rest.
+
+    ## Nulls are an answer, and a different one from a 404
+
+    A deployment with no identity provider configured gets `200` with nulls, not an
+    error: it is a real state (a box running strap-only) and the app can say so. A
+    404 means something else entirely — a server too old to have this endpoint —
+    and collapsing the two would leave the app unable to tell "this server has no
+    login" from "this server predates the question".
+    """
+    url = _supabase_url()
+    key = get_settings().supabase_anon_key
+    # Both or neither. Half a configuration is a sign-in form that submits into a
+    # 400, which is worse than a screen that says the server has no login set up.
+    if not url or not key:
+        return AuthConfigResponse(supabase_url=None, supabase_anon_key=None)
+    return AuthConfigResponse(supabase_url=url, supabase_anon_key=key)
 
 
 @router.get("/me", response_model=MeResponse)
