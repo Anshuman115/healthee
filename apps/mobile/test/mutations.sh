@@ -3306,6 +3306,54 @@ mutate 'the 44 px link constraint is dropped' \
   static const double minHeight = 0;'
 
 
+# ⛔⛔ THE ONE THAT COST A DAY. `AuthRetryableFetchException extends AuthException`,
+# so folding the two clauses together makes an unreachable server indistinguishable
+# from a refused credential — and the handler DELETES the session. One flaky app
+# start signs the owner out permanently, silently, with a spinner on screen.
+mutate 'an unreachable sign-in service deletes the session' \
+  test/signin/session_survives_offline_test.dart \
+  lib/data/auth/identity_client.dart \
+  '    } on AuthRetryableFetchException catch (error) {
+      // Kept, and deliberately not memoised: the session is probably fine and we
+      // could not reach the one server that can say otherwise.
+      _ready = null;
+      AppLog.info('"'"'identity'"'"', '"'"'could not reach the sign-in service (${error.code})'"'"');
+    } on AuthException catch (error) {' \
+  '    } on AuthException catch (error) {'
+
+# The memoisation half: keeping the session but caching the failure would make the
+# rest of the process behave as signed out even after the network came back.
+mutate 'a failed recovery is memoised as if it had answered' \
+  test/signin/session_survives_offline_test.dart \
+  lib/data/auth/identity_client.dart \
+  '      _ready = null;
+      AppLog.info('"'"'identity'"'"', '"'"'could not reach the sign-in service (${error.code})'"'"');' \
+  '      AppLog.info('"'"'identity'"'"', '"'"'could not reach the sign-in service (${error.code})'"'"');'
+
+
+# The retry storm. Announcing every 401 instead of the first closes a loop:
+# invalidate -> the screens rebuild -> they request -> 401. 1,280 requests in four
+# minutes in production, and every screen pinned in LOADING because no request
+# survived long enough to become an error.
+mutate 'every 401 re-announces the rejection' \
+  test/signin/session_guard_test.dart lib/data/api/server_session.dart \
+  '    if (rejected) {
+      return false;
+    }
+    rejected = true;
+    return true;' \
+  '    rejected = true;
+    return true;'
+
+# And the other end of it: a sign-in that left the flag set would swallow the
+# owner'"'"'s next real rejection, so the screens would never hear about it.
+mutate 'signing in leaves the rejected flag set' \
+  test/signin/session_guard_test.dart lib/data/api/server_session.dart \
+  '    rejected = false;
+    AppLog.info('"'"'signin'"'"', '"'"'signed in to ${address.host} with a pasted token'"'"');' \
+  '    AppLog.info('"'"'signin'"'"', '"'"'signed in to ${address.host} with a pasted token'"'"');'
+
+
 echo
 echo "caught $PASS, survived $FAIL"
 [ "$SKIPPED" -eq 0 ] || echo "SKIPPED $SKIPPED — this was a FILTERED run, not the gate"

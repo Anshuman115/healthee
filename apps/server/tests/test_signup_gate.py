@@ -38,7 +38,6 @@ from healthee.core import db as db_module
 from healthee.core.config import get_settings
 from healthee.core.db import transaction
 from healthee.core.request_auth import CurrentUser
-from healthee.core.tenancy import SENTINEL_TZ, SENTINEL_USER_ID
 from healthee.db import migrate
 
 pytestmark = pytest.mark.integration
@@ -46,7 +45,6 @@ pytestmark = pytest.mark.integration
 # >= 32 bytes: PyJWT warns (InsecureKeyLengthWarning) on shorter HMAC keys.
 _SECRET = "signup-gate-supabase-secret-0123456789abcdef"
 _AUD = "authenticated"
-_LEGACY_TOKEN = "signup-gate-legacy-token"
 
 _INVITED = "Invited.Owner@Example.com"  # deliberately mixed-case (CITEXT semantics)
 _STRANGER = "stranger@example.com"
@@ -73,7 +71,6 @@ def gate(monkeypatch: pytest.MonkeyPatch, db: None) -> Iterator[pytest.MonkeyPat
     monkeypatch.setenv("SUPABASE_JWT_SECRET", _SECRET)
     monkeypatch.setenv("SUPABASE_JWT_AUD", _AUD)
     monkeypatch.delenv("SUPABASE_PROJECT_REF", raising=False)
-    monkeypatch.setenv("REALTIME_INGEST_TOKEN", _LEGACY_TOKEN)
     monkeypatch.setenv("SIGNUPS_OPEN", "false")
     monkeypatch.setenv("SIGNUP_ALLOWLIST", "")
     get_settings.cache_clear()
@@ -84,15 +81,15 @@ def gate(monkeypatch: pytest.MonkeyPatch, db: None) -> Iterator[pytest.MonkeyPat
 
 
 def _open_signups(gate: pytest.MonkeyPatch) -> None:
-    """Open signups, and clear the legacy shared token — they cannot coexist.
+    """Open the door.
 
-    `core.config._refuse_a_shared_token_beside_open_signups` refuses that pair: one
-    static, never-expiring secret that authenticates as a real tenant has no business
-    in a deployment strangers can join. So a test that opens the door has to describe a
-    deployment where the transitional branch is gone, which is what these three do.
+    This used to also clear the shared `REALTIME_INGEST_TOKEN`, because a validator
+    refused the two settings together — one static, never-expiring secret that
+    authenticates as a real tenant has no business in a deployment strangers can join.
+    Both the token and the validator are gone (2026-09-10), so opening signups is now
+    just opening signups.
     """
     gate.setenv("SIGNUPS_OPEN", "true")
-    gate.setenv("REALTIME_INGEST_TOKEN", "")
     get_settings.cache_clear()
 
 
@@ -138,7 +135,6 @@ def test_the_403_body_is_clear_and_leaks_no_secret(gate: pytest.MonkeyPatch) -> 
     detail = _get(_token(uuid4(), email=_STRANGER)).json()["detail"]
     assert detail == "Signups are closed"
     assert _SECRET not in detail
-    assert _LEGACY_TOKEN not in detail
 
 
 def test_a_token_with_no_email_claim_is_refused(gate: pytest.MonkeyPatch) -> None:
@@ -226,18 +222,17 @@ def test_an_existing_owner_passes_while_signups_are_closed(gate: pytest.MonkeyPa
         _forget(uid)
 
 
-def test_the_legacy_shared_token_still_resolves_to_the_sentinel(
-    gate: pytest.MonkeyPatch,  # noqa: ARG001
-) -> None:
-    """The sentinel's row already exists (0003), so the gate cannot touch it.
+def test_a_bearer_that_is_not_a_JWT_is_401_here_too(gate: pytest.MonkeyPatch) -> None:  # noqa: ARG001, N802
+    """The gate refuses uninvited PEOPLE with a 403; a non-credential is a 401.
 
-    The un-rebuilt app authenticates with this token; if closing signups broke it,
-    the gate would have broken prod (MULTI_USER.md §4.4a).
+    Worth holding apart on this route specifically. Until 2026-09-10 one shared string
+    walked past the gate entirely and resolved to the sentinel — closing signups could
+    not touch it, by design. Now nothing does, and the two refusals still say different
+    things: 403 means we read who you are and will not serve you, 401 means we could
+    not read you at all.
     """
-    resp = _get(_LEGACY_TOKEN)
-    assert resp.status_code == 200
-    assert resp.json()["id"] == str(SENTINEL_USER_ID)
-    assert resp.json()["timezone"] == SENTINEL_TZ
+    resp = _get("signup-gate-legacy-token")
+    assert resp.status_code == 401
 
 
 # --- the allowlist parse ------------------------------------------------------

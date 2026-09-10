@@ -97,32 +97,6 @@ def refuse_an_unasked_for_rls_bypass(app_role_configured: bool, allow_fallback: 
     )
 
 
-def refuse_a_shared_token_beside_open_signups(signups_open: bool, token: str) -> None:
-    """`signups_open` and a live `REALTIME_INGEST_TOKEN` may never coexist.
-
-    The legacy shared token resolves to ONE REAL TENANT (`core.request_auth`), it
-    never expires, and it ships inside the APK. `request_auth`'s own module
-    docstring says it MUST NOT survive into public signups and `MULTI_USER.md` section 4
-    says `signups_open=true` is "gated on that removal" — and nothing gated it: the
-    two settings were independent fields with no validator between them, in a file
-    that already refuses three other ambiguities. One static string that reads and
-    writes a real owner's health data, in a deployment strangers can join, is the
-    one combination the design says must never happen, and it was prevented by a
-    paragraph.
-
-    Blank either one and this never fires. Removing the transitional branch is what
-    finally makes it unreachable.
-    """
-    if signups_open and token:
-        raise ValueError(
-            "SIGNUPS_OPEN is true while REALTIME_INGEST_TOKEN is set. That token is a "
-            "single, never-expiring shared secret that authenticates as one real "
-            "tenant, so a deployment anyone can sign up to must not carry it. Clear "
-            "REALTIME_INGEST_TOKEN (the transitional legacy branch then authorizes "
-            "nobody), or keep signups closed."
-        )
-
-
 def require_model_ids_when_ai_key_is_set(
     api_key: str, default_model: str, coach_model: str
 ) -> None:

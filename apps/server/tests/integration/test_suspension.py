@@ -36,12 +36,10 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from healthee.core import db as db_module
-from healthee.core import request_auth
 from healthee.core.config import get_settings
 from healthee.core.db import transaction
 from healthee.core.device_token import mint_device_token
 from healthee.core.request_auth import CurrentUser, IngestUser
-from healthee.core.tenancy import SENTINEL_USER_ID
 from healthee.db import migrate
 
 pytestmark = [
@@ -51,7 +49,6 @@ pytestmark = [
 
 _SECRET = "suspension-supabase-secret-0123456789abcdef"
 _AUD = "authenticated"
-_LEGACY_TOKEN = "suspension-legacy-token"
 
 
 def _jwt(sub: UUID) -> str:
@@ -82,7 +79,6 @@ def client(monkeypatch: pytest.MonkeyPatch, db: None) -> Iterator[TestClient]:  
     monkeypatch.setenv("SUPABASE_JWT_SECRET", _SECRET)
     monkeypatch.setenv("SUPABASE_JWT_AUD", _AUD)
     monkeypatch.delenv("SUPABASE_PROJECT_REF", raising=False)
-    monkeypatch.setenv("REALTIME_INGEST_TOKEN", _LEGACY_TOKEN)
     monkeypatch.setenv("SIGNUPS_OPEN", "false")
     monkeypatch.setenv("SIGNUP_ALLOWLIST", "")
     get_settings.cache_clear()
@@ -180,65 +176,3 @@ def test_one_owners_suspension_does_not_touch_another(client: TestClient) -> Non
     suspended, active = _owner(status="suspended"), _owner()
     assert client.get("/api/whoami", headers=_bearer(_jwt(suspended))).status_code == 403
     assert client.get("/api/whoami", headers=_bearer(_jwt(active))).status_code == 200
-
-
-# ── the sentinel is MOVED, never edited ──────────────────────────────────────
-#
-# The two tests below need the legacy branch to resolve an owner in a state we choose:
-# suspended, and absent. The obvious way is to edit the real sentinel row — and for the
-# absent case that means DELETING it, whose 19 `ON DELETE CASCADE` FKs take the
-# `subscription` row with it. `subscription` deliberately survives the seeds' truncate
-# lists (`conftest.entitle` says so), so that deletion silently un-entitles the sentinel
-# for the rest of the session and turns an unrelated file's `/api/today` assertions red.
-# Measured, not feared: it did exactly that to
-# `tests/jobs/test_recs_integration.py::test_today_endpoint_returns_the_persisted_recommendations`.
-#
-# So the constant is repointed instead. That is also a truer model of the thing under
-# test: `claim_sentinel` does not delete anything — it re-keys the row to the owner's
-# real Supabase UUID, after which `SENTINEL_USER_ID` names an owner who is not there.
-
-
-def _repoint_sentinel(monkeypatch: pytest.MonkeyPatch, user_id: UUID) -> None:
-    """Make the legacy branch resolve `user_id` instead of the real sentinel."""
-    monkeypatch.setattr(request_auth, "SENTINEL_USER_ID", user_id)
-
-
-def test_a_suspended_sentinel_refuses_the_legacy_shared_token(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """The transitional branch is not exempt — it resolves a real owner like any other."""
-    stand_in = _owner()
-    _repoint_sentinel(monkeypatch, stand_in)
-    assert client.get("/api/whoami", headers=_bearer(_LEGACY_TOKEN)).status_code == 200
-    _set_status(stand_in, "suspended")
-    assert client.get("/api/whoami", headers=_bearer(_LEGACY_TOKEN)).status_code == 403
-
-
-# ── F3: an absent sentinel row is a refusal, not an invented owner ───────────
-
-
-def test_an_absent_sentinel_row_refuses_the_legacy_token(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """`claim_sentinel` re-keys that row away BY DESIGN; the branch must die with it.
-
-    It used to log the anomaly and then authorise the request as an owner with no
-    `app_user` row — after which every tenant read returns zero rows under RLS and every
-    tenant write violates the FK. Neither reads as "your credential is no longer valid":
-    one shows an empty life and the other is a 500.
-    """
-    absent = uuid4()
-    with transaction() as cur:
-        cur.execute("SELECT 1 FROM app_user WHERE id = %s", (str(absent),))
-        assert cur.fetchone() is None, "the premise: this owner really has no row"
-    _repoint_sentinel(monkeypatch, absent)
-    resp = client.get("/api/whoami", headers=_bearer(_LEGACY_TOKEN))
-    assert resp.status_code == 401, "the legacy token authenticated a nonexistent owner"
-
-
-def test_the_real_sentinel_still_resolves(client: TestClient) -> None:
-    """The premise of both tests above: unpatched, the legacy token works as it always
-    has. Without this they could pass against a branch that refuses everybody."""
-    body = client.get("/api/whoami", headers=_bearer(_LEGACY_TOKEN))
-    assert body.status_code == 200
-    assert body.json() == {"id": str(SENTINEL_USER_ID)}

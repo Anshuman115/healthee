@@ -242,13 +242,22 @@ It refuses rather than guesses: target == sentinel · target never signed in ·
 target already owns data (a merge is a judgement call, not this tool's to make).
 Nothing to move ⇒ it says so and exits 0, so a re-run after success is a no-op.
 
-### B5. ⛔ Do NOT set `SIGNUPS_OPEN=true` until B7 is done
+### B5. `SIGNUPS_OPEN=true` — the gate is now open
 
-**The precondition is now met: the app ships Supabase login.** What gates this
-flag is not that — it is B7, *removing the legacy token*. Until then the shared
-`REALTIME_INGEST_TOKEN` still resolves to a real tenant, and `core/config.py`
-refuses to boot with both set, which is the check that makes this paragraph
-enforceable rather than advisory. A shared secret that
+**Both preconditions are met.** The app ships Supabase login, and B7 is done: the
+legacy shared token was cleared in production on 2026-09-10 and the branch that gave
+it meaning was deleted from `core/request_auth.py`. There is no longer a credential
+that authenticates as a tenant without being issued to a person, so the combination
+this section used to refuse is not configurable. `core/config.py`'s validator was
+removed with the setting — a pair that cannot exist needs no guard.
+
+⚠ **What still gates it is COST, not safety.** Every active owner gets a nightly LLM
+chain, so opening signups opens your bill to strangers. Use `SIGNUP_ALLOWLIST` unless
+you mean it. The paragraph below is kept as the record of why this was ever shut.
+
+<details><summary>Why this was gated (historical)</summary>
+
+A shared secret that
 resolves to a real tenant must never coexist with open signups: anyone holding it
 reads and writes that tenant's health data. That is exactly the hole
 `MULTI_USER.md` §12.7 exists to close. Opening signups is gated on **removing the
@@ -301,10 +310,11 @@ docker compose -f docker-compose.prod.yml exec api \
 Verify in the running image, not the repo:
 
 ```sh
-curl -fsS -H "Authorization: Bearer $REALTIME_INGEST_TOKEN" \
-  http://127.0.0.1:8765/api/entitlement          # → {"premium": true, "locked": [], ...}
-curl -fsS -H "Authorization: Bearer $REALTIME_INGEST_TOKEN" \
-  http://127.0.0.1:8765/api/today | grep -c '"action"'   # → 1 (0 means locked)
+# `/api/*` takes a Supabase JWT and nothing else, so this needs one from a signed-in
+# app — there is no shared token to paste any more. Copy the access token out of the
+# phone's session, or check the DB directly, which needs no credential at all:
+docker exec -i healthee-db psql -U healthee -d healthee -t -A -c \
+  "SELECT count(*) FROM entitlement WHERE user_id = '<uuid>' AND premium;"   # → 1
 ```
 
 **The alternative, for a self-hosted box only:** set `SELF_HOST_UNLOCKED=true` in
@@ -318,10 +328,15 @@ the row and its history are kept).
 
 ---
 
-### B7. Retiring the shared token — the step that closes the hole
+### B7. Retiring the shared token — ✅ DONE 2026-09-10
 
-Everything before this makes per-owner identity *possible*. This is the step that
-makes it *exclusive*. Until it is done, `REALTIME_INGEST_TOKEN` is still a
+The token was cleared in `infra/.env` and the branch reading it was deleted from
+`core/request_auth.py`, so this section is history rather than a procedure. It is kept
+because the ORDER is the reusable part: every step below was reversible until the last,
+and that is what made a change to live auth safe to make.
+
+Everything before this made per-owner identity *possible*. This was the step that
+made it *exclusive*. Until it was done, `REALTIME_INGEST_TOKEN` was a
 never-expiring string that authenticates as a whole tenant with no identity
 attached, and handing it to a second person hands them the first person's health
 record.
@@ -361,13 +376,17 @@ record.
    only thing reaching `/ingest/*` is still the shared token, and removing it now
    stops ingestion.
 
-5. **Remove `REALTIME_INGEST_TOKEN` from `infra/.env`** and redeploy. Blank fails
-   closed — `_legacy_shared_token` authorises *nobody* through that branch rather
-   than matching everything — so a pasted token stops working immediately and a
-   device token and a JWT go on working.
+5. **Remove `REALTIME_INGEST_TOKEN` from `infra/.env`** and redeploy. Blank failed
+   closed — the comparison authorised *nobody* rather than matching everything — so a
+   pasted token stopped working immediately while a device token and a JWT went on
+   working. **This is the last reversible step**: putting the value back restored the
+   old behaviour until step 6.
 
-6. **Now** `SIGNUPS_OPEN=true` (or an allowlist) is safe, and the config validator
-   will let the API boot with it.
+6. **Delete the branch itself**, which is what makes the removal permanent rather
+   than a setting somebody can put back. Done 2026-09-10.
+
+7. **Now** `SIGNUPS_OPEN=true` (or an allowlist) is safe on the auth side. It is still
+   a spending decision — see B5.
 
 7. **Delete the transitional code.** It is dead once the secret is gone, and dead
    auth scaffolding is the kind that comes back:
@@ -491,7 +510,6 @@ api. So only the scheduler needs the restart.
 | `POSTGRES_APP_PASSWORD` | You choose it (`openssl rand -base64 48 \| tr -d '/+=' \| head -c 32`). **Not** a self-service rotation: the role's password lives in Postgres too, so `deploy.sh` must re-run to re-provision the role with the new value — see **B2**. Editing `.env` alone will lock the app out (`.env` says X, Postgres still expects Y). | Run `infra/deploy.sh` (it re-provisions, then restarts). |
 | `SUPABASE_JWT_SECRET` | Supabase dashboard → Project → **Settings → API → JWT Settings → JWT Secret**. Rotating it there invalidates every issued token, so every user re-logs in. | `api`. |
 | `SUPABASE_SERVICE_ROLE_KEY` | Same page → **Project API keys → `service_role`** (Reveal / Roll). This key bypasses RLS — treat it like a root password. | `api`. |
-| `REALTIME_INGEST_TOKEN` | You choose it — but it is the **legacy shared token the strap app authenticates with**, so rotating it requires updating the app's build/config in lockstep or ingestion stops. Do not rotate casually before Phase 2. | `api`. |
 
 ### D3. What is `POSTGRES_APP_PASSWORD`? (the "app-role password")
 

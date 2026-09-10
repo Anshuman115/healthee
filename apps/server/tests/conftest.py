@@ -242,7 +242,6 @@ def env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[None]:
     for var in _DEFAULTED_ENV_VARS:
         monkeypatch.delenv(var, raising=False)
     monkeypatch.setenv("POSTGRES_PASSWORD", "unit-test-pw")
-    monkeypatch.setenv("REALTIME_INGEST_TOKEN", "unit-test-token")
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()

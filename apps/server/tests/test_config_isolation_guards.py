@@ -85,51 +85,29 @@ def test_the_opt_out_defaults_to_off(strict: pytest.MonkeyPatch) -> None:
     assert Settings().allow_admin_db_fallback is False
 
 
-# ── C3: one shared, never-expiring tenant key beside open signups ────────────
+# ── C3: RETIRED — the shared tenant key it guarded no longer exists ──────────
+#
+# This section refused `SIGNUPS_OPEN=true` beside a non-blank
+# `REALTIME_INGEST_TOKEN`: one never-expiring secret that resolved to a real tenant
+# and shipped inside the APK, in a deployment strangers could join. The branch that
+# gave that string any meaning was deleted from `core.request_auth` on 2026-09-10, so
+# the setting is gone and the validator with it — a pair that cannot be configured
+# needs no guard. What survives is the claim itself, now enforced structurally: there
+# is no credential that authenticates as a tenant without being issued to a person.
+#
+# The one test kept from it is below, because it asserts the OTHER half — that open
+# signups on their own are a valid configuration, which is exactly what the removal
+# was gating.
 
 
 def _configured(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A deployment that is otherwise valid, so only the C3 pair is under test."""
+    """A deployment that is otherwise valid, so only the setting under test matters."""
     monkeypatch.setenv("POSTGRES_APP_USER", "healthee_app")
     monkeypatch.setenv("POSTGRES_APP_PASSWORD", "app-secret")
 
 
-def test_open_signups_beside_the_legacy_token_refuse_to_boot(
-    strict: pytest.MonkeyPatch,
-) -> None:
-    """The combination `request_auth`'s docstring says must never happen.
-
-    The legacy shared token resolves to ONE REAL TENANT, never expires, and ships inside
-    the APK. `MULTI_USER.md` 4 says `signups_open=true` is "gated on that removal" —
-    and nothing gated it: two independent fields, no validator between them.
-    """
+def test_open_signups_are_fine_on_their_own(strict: pytest.MonkeyPatch) -> None:
+    """The post-transition deployment — the state the removal condition described."""
     _configured(strict)
-    strict.setenv("REALTIME_INGEST_TOKEN", "a-shared-secret")
-    strict.setenv("SIGNUPS_OPEN", "true")
-    with pytest.raises(ValueError, match="SIGNUPS_OPEN is true"):
-        Settings()
-
-
-def test_open_signups_with_no_legacy_token_are_fine(strict: pytest.MonkeyPatch) -> None:
-    """The post-transition deployment — the state the removal condition describes."""
-    _configured(strict)
-    strict.setenv("REALTIME_INGEST_TOKEN", "")
     strict.setenv("SIGNUPS_OPEN", "true")
     assert Settings().signups_open is True
-
-
-def test_the_legacy_token_with_signups_shut_is_fine(strict: pytest.MonkeyPatch) -> None:
-    """Today's deployment. The finding is the PAIR, not either half."""
-    _configured(strict)
-    strict.setenv("REALTIME_INGEST_TOKEN", "a-shared-secret")
-    strict.setenv("SIGNUPS_OPEN", "false")
-    assert Settings().realtime_ingest_token == "a-shared-secret"
-
-
-def test_the_refusal_says_which_two_settings_collide(strict: pytest.MonkeyPatch) -> None:
-    _configured(strict)
-    strict.setenv("REALTIME_INGEST_TOKEN", "a-shared-secret")
-    strict.setenv("SIGNUPS_OPEN", "true")
-    with pytest.raises(ValueError) as caught:
-        Settings()
-    assert "REALTIME_INGEST_TOKEN" in str(caught.value)

@@ -41,7 +41,6 @@ pytestmark = [
     pytest.mark.usefixtures("owner_sweep"),
 ]
 
-_LEGACY_TOKEN = "ingest-attribution-legacy-token"
 _SECRET = "ingest-attribution-supabase-secret-0123456789abcdef"
 _AUD = "authenticated"
 
@@ -70,8 +69,7 @@ def _db_reachable() -> bool:
 
 @pytest.fixture
 def client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
-    """A migrated DB with owner B present, plus both token kinds configured."""
-    monkeypatch.setenv("REALTIME_INGEST_TOKEN", _LEGACY_TOKEN)
+    """A migrated DB with owner B present and Supabase auth configured."""
     monkeypatch.setenv("SUPABASE_JWT_SECRET", _SECRET)
     monkeypatch.setenv("SUPABASE_JWT_AUD", _AUD)
     get_settings.cache_clear()
@@ -128,11 +126,16 @@ def test_a_device_token_push_is_written_under_that_tokens_owner(client: TestClie
     assert SENTINEL_USER_ID not in owners  # explicitly NOT the transitional default
 
 
-def test_the_legacy_shared_token_push_is_written_under_the_sentinel(client: TestClient) -> None:
-    """Today's app behaviour, unchanged — the whole reason the transition exists."""
+def test_the_removed_shared_token_writes_NOTHING_now(client: TestClient) -> None:  # noqa: N802
+    """The transition, asserted as an absence — and on the path where it matters most.
+
+    A shared bearer used to be written under the sentinel. Ingest is the write side,
+    so the wrong answer here is not a leaked read: it is health data appearing in
+    somebody's history that they did not measure. It is a 401 and it stores nothing.
+    """
     ts = datetime.now(tz=UTC).replace(microsecond=0) - timedelta(hours=4)
-    assert _post(client, _LEGACY_TOKEN, ts).status_code == 200
-    assert _owners_of_the_pushed_sample(ts) == [SENTINEL_USER_ID]
+    assert _post(client, "ingest-attribution-legacy-token", ts).status_code == 401
+    assert _owners_of_the_pushed_sample(ts) == []
 
 
 def test_two_owners_pushes_at_the_same_instant_stay_separate(client: TestClient) -> None:
@@ -142,7 +145,8 @@ def test_two_owners_pushes_at_the_same_instant_stay_separate(client: TestClient)
     sentinel's reading of the same instant. Both owners keep their own number.
     """
     ts = datetime.now(tz=UTC).replace(microsecond=0) - timedelta(hours=5)
-    assert _post(client, _LEGACY_TOKEN, ts).status_code == 200
+    sentinel_token = mint_device_token(SENTINEL_USER_ID, label="the sentinel's strap")[0]
+    assert _post(client, sentinel_token, ts).status_code == 200
     assert _post(client, mint_device_token(OWNER_B, label="b's strap")[0], ts).status_code == 200
     assert sorted(str(o) for o in _owners_of_the_pushed_sample(ts)) == sorted(
         [str(SENTINEL_USER_ID), str(OWNER_B)]

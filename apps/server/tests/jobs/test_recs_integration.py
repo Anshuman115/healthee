@@ -20,6 +20,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from tests._auth import SECRET, auth_header
 from tests.conftest import entitle
 from tests.insights._ids import ESTABLISHED_ID
 from tests.insights._stub import StubLLM
@@ -38,8 +39,7 @@ import _seed_db as sd  # type: ignore[import-not-found]  # noqa: E402 — shared
 
 pytestmark = pytest.mark.integration
 
-_TOKEN = "recs-test-token"
-_AUTH = {"Authorization": f"Bearer {_TOKEN}"}
+_AUTH = auth_header(SENTINEL_USER_ID, SECRET)
 # The owner's OWN today. `generate_recs` refuses any other day, because every input
 # it has is today's and a row dated otherwise would carry a date its content never
 # answered for (B2). A fixed past date used to work here and was exactly the shape
@@ -129,7 +129,8 @@ def test_today_endpoint_returns_the_persisted_recommendations(
     # `subscription` survives the seed truncations — the order-dependent pass
     # `conftest.entitle` documents, invisible until someone runs this file alone.
     entitle(SENTINEL_USER_ID)
-    monkeypatch.setenv("REALTIME_INGEST_TOKEN", _TOKEN)
+    monkeypatch.setenv("SUPABASE_JWT_SECRET", SECRET)
+    monkeypatch.delenv("SUPABASE_PROJECT_REF", raising=False)
     get_settings.cache_clear()
     # Persist for today's real date so /api/today (which reads the latest day) sees them.
     recs.generate_recs(SENTINEL_USER_ID, SENTINEL_TZ, client=StubLLM([_GOOD_PLUS_UNCITABLE]))

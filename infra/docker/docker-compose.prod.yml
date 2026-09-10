@@ -60,8 +60,6 @@ services:
       POSTGRES_APP_USER: ${POSTGRES_APP_USER:-}
       POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD:-}
       ALLOW_ADMIN_DB_FALLBACK: ${ALLOW_ADMIN_DB_FALLBACK:-false}
-      # API auth — the legacy shared token the un-rebuilt app still sends.
-      REALTIME_INGEST_TOKEN: ${REALTIME_INGEST_TOKEN}
       # Supabase identity (MULTI_USER.md §4). The API only VERIFIES the JWT.
       # A blank secret fails auth CLOSED — every JWT is refused — so omitting
       # these here silently reduces the server to legacy-token-only.

@@ -85,15 +85,38 @@ class IdentityClient {
 
   /// The real work, run once behind [restore].
   ///
-  /// A stored session that will not parse is DELETED rather than kept: it
-  /// cannot be refreshed, so keeping it only makes every later read fail the
-  /// same way, and the owner's route out is the sign-in screen either way.
+  /// A stored session that will not parse, or that the server has genuinely
+  /// rejected, is DELETED rather than kept: it cannot be refreshed, so keeping it
+  /// only makes every later read fail the same way, and the owner's route out is
+  /// the sign-in screen either way.
+  ///
+  /// ## ⛔ A network failure is NOT a rejection, and this is where that bit
+  ///
+  /// `AuthRetryableFetchException extends AuthException`, so a single `on
+  /// AuthException` catches a dead connection and a refused credential in the
+  /// same clause. This method used to have exactly that, and the consequence was
+  /// not a bad error message: it **deleted the session**. One unreachable network
+  /// call at app start — a train, a captive portal, an ISP resolving a name to
+  /// its own ad server — signed the owner out permanently. Nothing said so; the
+  /// next `/api/*` call simply carried no header, the server answered 401, and
+  /// Today showed a loading state over a session that no longer existed. Only
+  /// typing a password again fixed it, and only until the next flaky start.
+  ///
+  /// So the retryable case is caught FIRST, keeps the session, and clears
+  /// [_ready] so the next caller genuinely tries again rather than being handed
+  /// the memoised failure. The rule: **delete a credential only when the server
+  /// has told us it is dead.** Not being able to ask is not an answer.
   Future<void> _restore() async {
     _watch ??= _auth.onAuthStateChange.listen(_persist, onError: _noteStreamError);
     final stored = await _secrets.read(key: kIdentitySessionKey);
     if (stored == null) return;
     try {
       await _auth.recoverSession(stored);
+    } on AuthRetryableFetchException catch (error) {
+      // Kept, and deliberately not memoised: the session is probably fine and we
+      // could not reach the one server that can say otherwise.
+      _ready = null;
+      AppLog.info('identity', 'could not reach the sign-in service (${error.code})');
     } on AuthException catch (error) {
       // The code, never the message: it can quote the response body.
       AppLog.info('identity', 'stored session not recoverable (${error.code})');
@@ -141,6 +164,12 @@ class IdentityClient {
     await restore();
     try {
       return (await _auth.getSession())?.accessToken;
+    } on AuthRetryableFetchException catch (error) {
+      // The same distinction [_restore] draws, at the other end of the session's
+      // life: a refresh we could not send is not a refresh that was refused. The
+      // session stays, and the caller gets no token for this one request.
+      AppLog.info('identity', 'could not reach the sign-in service (${error.code})');
+      return null;
     } on AuthException catch (error) {
       // A refresh that cannot succeed is a session that is over. Say so once,
       // and let the caller's 401 handling take the owner to sign-in.

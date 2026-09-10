@@ -74,10 +74,6 @@ class Settings(BaseSettings):
     # `_refuse_an_unasked_for_rls_bypass` below for the whole argument.
     allow_admin_db_fallback: bool = False
 
-    # ── API auth (required in production; blank means "reject everything") ──
-    # Bearer token expected on every /ingest/* and /api/* request.
-    realtime_ingest_token: str = ""
-
     # ── FastAPI bind (inside the container) ───────────────────────────────
     api_host: str = "0.0.0.0"  # noqa: S104 — LAN-reachable by design (mobile app)
     api_port: int = 8765
@@ -288,13 +284,6 @@ class Settings(BaseSettings):
     def _refuse_an_unasked_for_rls_bypass(self) -> Self:
         guards.refuse_an_unasked_for_rls_bypass(
             self.app_role_configured, self.allow_admin_db_fallback
-        )
-        return self
-
-    @model_validator(mode="after")
-    def _refuse_a_shared_token_beside_open_signups(self) -> Self:
-        guards.refuse_a_shared_token_beside_open_signups(
-            self.signups_open, self.realtime_ingest_token
         )
         return self
 

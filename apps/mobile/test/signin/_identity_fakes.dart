@@ -12,6 +12,7 @@
 library;
 
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:gotrue/gotrue.dart';
 import 'package:healthee/data/api/secret_store.dart';
@@ -75,8 +76,29 @@ Map<String, Object?> tokenBody({
 /// A scripted auth server: what it answered, and what it was asked.
 class ScriptedAuth {
   /// [reply] answers every request; [status] is its HTTP status.
-  ScriptedAuth({Map<String, Object?>? reply, this.status = 200})
-    : reply = reply ?? tokenBody();
+  ///
+  /// [unreachable] makes the transport THROW instead of answering, which is how
+  /// `gotrue` produces an `AuthRetryableFetchException` — a train, a captive
+  /// portal, an ISP resolving the name to its own server. It is a different
+  /// thing from any [status], and the app must treat it differently.
+  ScriptedAuth({
+    Map<String, Object?>? reply,
+    this.status = 200,
+    this.unreachable = false,
+    this.unreachableGrant,
+  }) : reply = reply ?? tokenBody();
+
+  /// Whether the transport fails to reach the server at all.
+  final bool unreachable;
+
+  /// Fail only the calls carrying this `grant_type`, and answer the rest.
+  ///
+  /// `refresh_token` reproduces the owner's real condition: a stored session
+  /// whose refresh cannot get through while a fresh password sign-in
+  /// (`grant_type=password`) goes to the same host and works. An all-or-nothing
+  /// [unreachable] cannot express that, and the ordering bug it exposes only
+  /// happens when the two differ.
+  final String? unreachableGrant;
 
   /// The body to answer with.
   final Map<String, Object?> reply;
@@ -90,6 +112,10 @@ class ScriptedAuth {
   /// The transport `GoTrueClient` should be given.
   MockClient get client => MockClient((request) async {
     sent.add(request);
+    final grant = request.url.queryParameters['grant_type'];
+    if (unreachable || (unreachableGrant != null && grant == unreachableGrant)) {
+      throw const SocketException('the sign-in service could not be reached');
+    }
     return http.Response(
       jsonEncode(reply),
       status,
@@ -99,17 +125,27 @@ class ScriptedAuth {
 }
 
 /// An [IdentityClient] over [auth] and [secrets], configured as the app's is.
-IdentityClient identityWith(ScriptedAuth auth, SecretStore secrets) {
+///
+/// [autoRefresh] is off by default, and ONLY in tests: the refresh timer is a
+/// real `Timer.periodic` and a widget test's fake clock never fires it, while a
+/// unit test's real one leaves a pending timer the framework fails on. What the
+/// timer does is proved by asking for an expired token instead.
+///
+/// A test that needs recovery to actually ATTEMPT a refresh must turn it on —
+/// `recoverSession` signs out immediately rather than refreshing when it is off
+/// (`gotrue_client.dart`, `if (!_autoRefreshToken || token == null)`), so with it
+/// off there is no network call to fail and nothing to distinguish.
+IdentityClient identityWith(
+  ScriptedAuth auth,
+  SecretStore secrets, {
+  bool autoRefresh = false,
+}) {
   return IdentityClient(
     GoTrueClient(
       url: kAuthUrl,
       headers: const <String, String>{'apikey': 'test-anon-key'},
       httpClient: auth.client,
-      // Off in tests, and ONLY in tests: the refresh timer is a real
-      // `Timer.periodic` and a widget test's fake clock never fires it, while a
-      // unit test's real one leaves a pending timer the framework fails on.
-      // What the timer does is proved by asking for an expired token instead.
-      autoRefreshToken: false,
+      autoRefreshToken: autoRefresh,
       flowType: AuthFlowType.implicit,
     ),
     secrets,

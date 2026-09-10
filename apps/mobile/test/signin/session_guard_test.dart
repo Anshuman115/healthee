@@ -16,7 +16,10 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/data/api/interceptors.dart';
 
+import '../pairing/_pairing_fakes.dart';
 import '_signin_fakes.dart';
+
+const String _guardUrl = 'https://healthee.example.com';
 
 void main() {
   late ScriptedServer server;
@@ -77,6 +80,45 @@ void main() {
     server.failWith = hostNotFound('healthee.example.com');
     await attempt(() => dio.get<Object?>('/api/today'));
     expect(rejections, isZero);
+  });
+
+  group('a rejection is announced ONCE, however many 401s arrive', () {
+    // The loop this closes: `api_client` reacts to a rejection by invalidating
+    // `serverSessionProvider`, the screens watch it, a rebuilt screen re-requests,
+    // and that 401s. Production, 2026-09-10: 1,280 requests in four minutes, all
+    // 401. It also pinned every screen in LOADING, because each request was reset
+    // before it could settle into an error — a spinner over a dead session.
+
+    test('the first 401 is new and the rest are not', () async {
+      final repository = repositoryWith(FakeSecretStore(), ScriptedServer());
+
+      expect(repository.noteRejected(), isTrue);
+      expect(repository.noteRejected(), isFalse);
+      expect(repository.noteRejected(), isFalse);
+    });
+
+    test('and the flag it sets is the one `status` reports', () async {
+      final store = FakeSecretStore();
+      final repository = repositoryWith(store, ScriptedServer());
+      await repository.signInWithToken(url: _guardUrl, token: kSentinelToken);
+
+      expect((await repository.status()).rejected, isFalse);
+      repository.noteRejected();
+      expect((await repository.status()).rejected, isTrue);
+    });
+
+    test('a fresh sign-in makes the next 401 new again', () async {
+      // Otherwise an owner who signed back in would have their first real
+      // rejection swallowed, and the screens would never hear about it.
+      final store = FakeSecretStore();
+      final repository = repositoryWith(store, ScriptedServer());
+      repository.noteRejected();
+
+      await repository.signInWithToken(url: _guardUrl, token: kSentinelToken);
+
+      expect(repository.rejected, isFalse);
+      expect(repository.noteRejected(), isTrue);
+    });
   });
 
   test('the error still reaches the caller — the guard only observes', () async {

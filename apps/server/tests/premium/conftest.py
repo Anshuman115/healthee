@@ -17,6 +17,7 @@ from collections.abc import Callable, Iterator
 
 import pytest
 from fastapi.testclient import TestClient
+from tests._auth import SECRET, auth_header
 from tests.conftest import entitle
 from tests.insights._stub import StubLLM
 
@@ -34,8 +35,7 @@ from healthee.core.db import close_pool
 from healthee.core.tenancy import SENTINEL_USER_ID
 from healthee.insights import coach, grounded
 
-TOKEN = "premium-test-token"
-AUTH = {"Authorization": f"Bearer {TOKEN}"}
+AUTH = auth_header(SENTINEL_USER_ID, SECRET)
 
 
 @pytest.fixture
@@ -47,7 +47,8 @@ def bed(  # noqa: ARG001 — `db` gates reachability; `owner_sweep` removes seed
     """A seeded, authenticated client. The owner starts PREMIUM (``seed_all`` entitles)."""
     from tests.contracts.seed import seed_all
 
-    monkeypatch.setenv("REALTIME_INGEST_TOKEN", TOKEN)
+    monkeypatch.setenv("SUPABASE_JWT_SECRET", SECRET)
+    monkeypatch.delenv("SUPABASE_PROJECT_REF", raising=False)
     get_settings.cache_clear()
     close_pool()
     seed_all()
