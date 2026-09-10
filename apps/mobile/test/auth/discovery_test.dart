@@ -14,9 +14,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:healthee/data/api/credentials.dart';
 import 'package:healthee/data/api/server_session.dart';
 import 'package:healthee/data/api/signin_failure.dart';
+import 'package:healthee/data/api/stored_server_session.dart';
 import 'package:healthee/data/auth/auth_config.dart';
 import 'package:healthee/data/auth/auth_config_client.dart';
 import 'package:healthee/data/auth/device_token_client.dart';
+import 'package:healthee/data/auth/identity_client.dart';
 import 'package:healthee/data/auth/identity_providers.dart';
 
 import '../pairing/_pairing_fakes.dart';
@@ -162,7 +164,56 @@ void main() {
       expect(resolved.anonKey, 'server-anon-key');
     });
 
-    test('with nothing stored it falls back to the build, or to nothing', () async {
+    test('THE UPGRADE PATH: it asks the server this phone is signed in to', () async {
+      // Without this, every existing install signs itself out on upgrade. A phone
+      // that signed in before auth-config existed holds a session and an address
+      // but no provider — so on a build with no dart-defines the client is never
+      // built, the session cannot be recovered, and every call is a 401 with no
+      // token in it.
+      final store = FakeSecretStore();
+      final credentials = Credentials(store);
+      await credentials.setServerSession(
+        baseUrl: _url,
+        token: _minted,
+        kind: StoredCredentialKind.device,
+      );
+      final server = ScriptedServer(reply: const ServerReply(200, body: _configured));
+
+      final resolved = await resolveAuthConfig(
+        credentials,
+        discover: AuthConfigClient(AuthConfigClient.dioFor()..httpClientAdapter = server),
+      );
+
+      expect(resolved!.supabaseUrl, 'https://abcd.supabase.co');
+      expect(server.sent.single.uri.toString(), '$_url/api/auth-config');
+      // Stored, so it happens once rather than on every cold start.
+      expect(await credentials.authConfig(), isNotNull);
+    });
+
+    test('an unreachable server stores NOTHING and stays unresolved', () async {
+      // A bad moment must not become a permanent signed-out state — the same
+      // rule `session_survives_offline_test.dart` holds at the other end.
+      final store = FakeSecretStore();
+      final credentials = Credentials(store);
+      await credentials.setServerSession(
+        baseUrl: _url,
+        token: _minted,
+        kind: StoredCredentialKind.device,
+      );
+
+      final resolved = await resolveAuthConfig(
+        credentials,
+        discover: AuthConfigClient(
+          AuthConfigClient.dioFor()
+            ..httpClientAdapter = ScriptedServer(reply: const ServerReply(500)),
+        ),
+      );
+
+      expect(resolved, isNull);
+      expect(await credentials.authConfig(), isNull);
+    });
+
+    test('with no session and nothing stored it falls back to the build, or to nothing', () async {
       // A test build carries no dart-defines, so this is null here — and null is
       // not a broken build, just one that has not been told yet.
       final resolved = await resolveAuthConfig(Credentials(FakeSecretStore()));
@@ -182,6 +233,74 @@ void main() {
       await credentials.forgetServerSession();
 
       expect(await credentials.authConfig(), isNull);
+    });
+  });
+
+  group('A FAILED RESOLUTION IS NOT A FINDING', () {
+    // `restore()` memoises. Observed on a real phone: one racing call at startup
+    // left `_ready` completed with no provider resolved, so `accessToken()`
+    // returned null for the life of the process and every `/api/*` call was a 401
+    // carrying no token — against a server that was answering fine.
+
+    test('a client that could not resolve tries again on the next call', () async {
+      final store = FakeSecretStore();
+      final credentials = Credentials(store);
+      await credentials.setServerSession(
+        baseUrl: _url,
+        token: _minted,
+        kind: StoredCredentialKind.device,
+      );
+      final server = ScriptedServer(reply: const ServerReply(500));
+      final identity = IdentityClient.deferred(
+        resolve: () => resolveAuthConfig(
+          credentials,
+          discover: AuthConfigClient(
+            AuthConfigClient.dioFor()..httpClientAdapter = server,
+          ),
+        ),
+        build: (config) => throw StateError('should not build from nothing'),
+        secrets: store,
+      );
+
+      await identity.restore();
+      final afterFirst = server.sent.length;
+      await identity.restore();
+
+      expect(
+        server.sent.length,
+        greaterThan(afterFirst),
+        reason: 'the failure was memoised, so it never resolved again',
+      );
+      expect(identity.isConfigured, isFalse);
+    });
+
+    test('and once the server answers, it resolves', () async {
+      final store = FakeSecretStore();
+      final credentials = Credentials(store);
+      await credentials.setServerSession(
+        baseUrl: _url,
+        token: _minted,
+        kind: StoredCredentialKind.device,
+      );
+      final server = ScriptedServer(reply: const ServerReply(500));
+      final identity = IdentityClient.deferred(
+        resolve: () => resolveAuthConfig(
+          credentials,
+          discover: AuthConfigClient(
+            AuthConfigClient.dioFor()..httpClientAdapter = server,
+          ),
+        ),
+        build: (config) => gotrueFor(config, ScriptedAuth()),
+        secrets: store,
+      );
+
+      await identity.restore();
+      expect(identity.isConfigured, isFalse);
+
+      server.reply = const ServerReply(200, body: _configured);
+      await identity.restore();
+
+      expect(identity.isConfigured, isTrue);
     });
   });
 }

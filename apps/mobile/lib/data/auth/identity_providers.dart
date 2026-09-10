@@ -13,9 +13,13 @@ library;
 
 import 'package:gotrue/gotrue.dart';
 import 'package:healthee/core/env.dart';
+import 'package:healthee/core/logging.dart';
 import 'package:healthee/data/api/credentials.dart';
 import 'package:healthee/data/api/secret_store.dart';
+import 'package:healthee/data/api/server_url.dart';
+import 'package:healthee/data/api/signin_failure.dart';
 import 'package:healthee/data/auth/auth_config.dart';
+import 'package:healthee/data/auth/auth_config_client.dart';
 import 'package:healthee/data/auth/identity_client.dart';
 import 'package:healthee/data/auth/identity_store.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
@@ -36,7 +40,10 @@ IdentityClient? identityClient(Ref ref) {
   // asked — but a build with neither is no longer a build that cannot sign in: it
   // is one that has not been told yet.
   final client = IdentityClient.deferred(
-    resolve: () => resolveAuthConfig(credentials),
+    resolve: () => resolveAuthConfig(
+      credentials,
+      discover: AuthConfigClient(AuthConfigClient.dioFor()),
+    ),
     secrets: secrets,
     build: (config) => _gotrue(config, secrets),
   );
@@ -58,14 +65,66 @@ IdentityClient? identityClient(Ref ref) {
 ///
 /// A named function rather than a closure so the ORDER can be tested — a mutation
 /// swapping the two survived while this was inline.
-Future<AuthConfig?> resolveAuthConfig(Credentials credentials) async =>
-    await credentials.authConfig() ??
-    (Env.hasIdentityProvider
-        ? const AuthConfig(
-            supabaseUrl: Env.supabaseUrl,
-            anonKey: Env.supabaseAnonKey,
-          )
-        : null);
+Future<AuthConfig?> resolveAuthConfig(
+  Credentials credentials, {
+  AuthConfigClient? discover,
+}) async {
+  final stored = await credentials.authConfig();
+  if (stored != null) {
+    return stored;
+  }
+  if (Env.hasIdentityProvider) {
+    return const AuthConfig(
+      supabaseUrl: Env.supabaseUrl,
+      anonKey: Env.supabaseAnonKey,
+    );
+  }
+  return _fromTheServerWeAreSignedInTo(credentials, discover);
+}
+
+/// ⛔ The UPGRADE path, and without it every existing install signs itself out.
+///
+/// A phone that signed in before `auth-config` existed holds a session and a
+/// server address but no stored provider — nothing wrote one, because nothing
+/// asked. On a build with no dart-defines the two steps above then both come back
+/// null, the `gotrue` client is never built, the stored session cannot be
+/// recovered, `accessToken()` returns null, and every `/api/*` call is a 401 with
+/// no token in it. Silently, on upgrade, to everybody.
+///
+/// So the last resort is to ask the server this phone is ALREADY signed in to. It
+/// is the same question the sign-in screen asks, aimed at an address the owner
+/// chose earlier rather than one they just typed, and the answer is stored so it
+/// happens once.
+///
+/// Failure returns null and stores NOTHING: an unreachable server is not evidence
+/// that there is no provider, and caching that conclusion would turn one bad
+/// moment into a permanent signed-out state — the exact shape of the bug that made
+/// a flaky connection delete a session.
+Future<AuthConfig?> _fromTheServerWeAreSignedInTo(
+  Credentials credentials,
+  AuthConfigClient? discover,
+) async {
+  if (discover == null) {
+    return null;
+  }
+  final session = await credentials.serverSession();
+  if (session == null) {
+    return null;
+  }
+  final ServerUrl address;
+  try {
+    address = ServerUrl.parse(session.baseUrl);
+  } on ServerSignInException {
+    return null;
+  }
+  final result = await discover.forServer(address);
+  if (result is! AuthConfigFound) {
+    AppLog.info('identity', 'the signed-in server named no provider yet');
+    return null;
+  }
+  await credentials.setAuthConfig(result.config);
+  return result.config;
+}
 
 /// The `gotrue` client for one provider, configured the way this app needs it.
 GoTrueClient _gotrue(AuthConfig config, SecretStore secrets) => GoTrueClient(
