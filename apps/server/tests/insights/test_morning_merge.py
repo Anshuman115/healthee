@@ -22,6 +22,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from tests._auth import SECRET, auth_header
 from tests.conftest import entitle
 from tests.insights._ids import ESTABLISHED_ID
 from tests.insights._stub import MORNING_JSON, VALID_TEXT, StubLLM
@@ -40,8 +41,7 @@ import _seed_db as sd  # type: ignore[import-not-found]  # noqa: E402 — shared
 
 pytestmark = pytest.mark.integration
 
-_TOKEN = "morning-test-token"
-_AUTH = {"Authorization": f"Bearer {_TOKEN}"}
+_AUTH = auth_header(SENTINEL_USER_ID, SECRET)
 
 _BRIEFING_BODY = (
     f"Recovery sits at your median. Steady load may support fitness [{ESTABLISHED_ID}]."
@@ -64,7 +64,8 @@ def bed(db: None, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:  # noqa: A
     entitle(SENTINEL_USER_ID, premium=True)
     monkeypatch.setattr(briefing_mod, "send_telegram", lambda *_a, **_kw: True)
     monkeypatch.setattr(chain, "send_telegram", lambda *_a, **_kw: True)
-    monkeypatch.setenv("REALTIME_INGEST_TOKEN", _TOKEN)
+    monkeypatch.setenv("SUPABASE_JWT_SECRET", SECRET)
+    monkeypatch.delenv("SUPABASE_PROJECT_REF", raising=False)
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()

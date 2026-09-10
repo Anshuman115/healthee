@@ -37,7 +37,6 @@ pytestmark = [
 
 _SECRET = "request-auth-int-supabase-secret-0123456789abcdef"
 _AUD = "authenticated"
-_LEGACY_TOKEN = "request-auth-int-legacy-token"
 
 
 def _token(sub: UUID) -> str:
@@ -88,32 +87,22 @@ def _built(monkeypatch: pytest.MonkeyPatch) -> TestClient:
     return TestClient(_serving_app())
 
 
-# ── Two deployments, because the config now refuses to be both at once ────────
+# ── One deployment now, because there is only one credential ─────────────────
 #
-# `core.config._refuse_a_shared_token_beside_open_signups` refuses `SIGNUPS_OPEN=true`
-# alongside a non-blank `REALTIME_INGEST_TOKEN`: one never-expiring shared secret that
-# authenticates as a real tenant has no business in a deployment strangers can join.
-# This file used to set both in ONE fixture, which is exactly the combination the
-# design says must never exist — so the fixture is now two, and each test says which
-# deployment it is asking about. That is a better description of the system than the
-# single fixture was, not a workaround for the validator.
+# This file used to carry TWO client fixtures — one for the post-transition
+# deployment and one for the transitional deployment where the shared
+# `REALTIME_INGEST_TOKEN` still resolved to the sentinel. That branch is gone from
+# `core.request_auth` (2026-09-10), so there is one deployment and one way in, and
+# the tests that described the other one are below as a single negative: an opaque
+# bearer is a 401, whatever it is.
 
 
 @pytest.fixture
 def signup_client(_auth_env: pytest.MonkeyPatch) -> TestClient:
-    """The post-transition deployment: real Supabase logins, no legacy token."""
-    _auth_env.setenv("REALTIME_INGEST_TOKEN", "")
+    """The only deployment there is: real Supabase logins."""
     # This file asks *who* a token resolves to, not *whether* a stranger may sign up
     # (that is `tests/test_signup_gate.py`), so signups are open here.
     _auth_env.setenv("SIGNUPS_OPEN", "true")
-    return _built(_auth_env)
-
-
-@pytest.fixture
-def legacy_client(_auth_env: pytest.MonkeyPatch) -> TestClient:
-    """The transitional deployment: the shared token lives, signups are shut."""
-    _auth_env.setenv("REALTIME_INGEST_TOKEN", _LEGACY_TOKEN)
-    _auth_env.setenv("SIGNUPS_OPEN", "false")
     return _built(_auth_env)
 
 
@@ -144,27 +133,40 @@ def test_a_valid_jwt_jit_provisions_the_user(signup_client: TestClient) -> None:
     assert row is not None and row[0] == 1
 
 
-def test_the_legacy_shared_token_resolves_to_the_sentinel(legacy_client: TestClient) -> None:
-    """The transition: today's app token keeps resolving exactly today's one tenant."""
-    body = _whoami(legacy_client, _LEGACY_TOKEN)
-    assert body["id"] == str(SENTINEL_USER_ID)
-    assert body["timezone"] == SENTINEL_TZ  # the row 0003 seeds
+def test_AN_OPAQUE_BEARER_IS_401_AND_RESOLVES_TO_NOBODY(  # noqa: N802
+    signup_client: TestClient,
+) -> None:
+    """The removed transition, asserted as an absence.
+
+    Until 2026-09-10 a single shared string in this header resolved to the sentinel
+    owner on every `/api/*` route. Deleting code cannot be proved by the code that is
+    left, so the guarantee is written down as its consequence: a bearer that is not a
+    verifiable JWT is refused, and no old secret is a special case of that.
+    """
+    for presented in ("request-auth-int-legacy-token", "", "Bearer", "a" * 64):
+        resp = signup_client.get("/whoami", headers={"Authorization": f"Bearer {presented}"})
+        assert resp.status_code == 401, f"{presented!r} was not refused"
+        assert str(SENTINEL_USER_ID) not in resp.text
 
 
 def test_the_sentinels_timezone_comes_from_its_row_not_the_constant(
-    legacy_client: TestClient,
+    signup_client: TestClient,
 ) -> None:
     """Per-user timezone is real for the sentinel too — the `app_user` row is the source.
 
     Returning `SENTINEL_TZ` from the constant would make this owner's zone unchangeable
-    and silently disagree with every query below, which threads the row's value.
+    and silently disagree with every query below, which threads the row's value. Reached
+    through a JWT now rather than the shared token, because that is the only door left;
+    the claim it makes about the row is unchanged.
     """
+    _whoami(signup_client, _token(SENTINEL_USER_ID))  # provisions the row if absent
     _set_timezone(SENTINEL_USER_ID, "Pacific/Auckland")
     try:
-        assert _whoami(legacy_client, _LEGACY_TOKEN)["timezone"] == "Pacific/Auckland"
+        body = _whoami(signup_client, _token(SENTINEL_USER_ID))
+        assert body["timezone"] == "Pacific/Auckland"
     finally:
         _set_timezone(SENTINEL_USER_ID, SENTINEL_TZ)
-    assert _whoami(legacy_client, _LEGACY_TOKEN)["timezone"] == SENTINEL_TZ
+    assert _whoami(signup_client, _token(SENTINEL_USER_ID))["timezone"] == SENTINEL_TZ
 
 
 def test_a_users_timezone_comes_from_their_own_row(signup_client: TestClient) -> None:

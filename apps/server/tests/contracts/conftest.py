@@ -10,12 +10,12 @@ from collections.abc import Iterator
 import psycopg
 import pytest
 from fastapi.testclient import TestClient
+from tests._auth import SECRET, auth_header
 
 from healthee.api.app import create_app
 from healthee.core import db as db_module
 from healthee.core.config import get_settings
-
-_TOKEN = "contract-token"
+from healthee.core.tenancy import SENTINEL_USER_ID
 
 
 def _db_reachable() -> bool:
@@ -34,7 +34,8 @@ def seeded_client(
     owner_sweep: None,  # noqa: ARG001 — `seed_owner_b` provisions an owner; sweep it (#119)
 ) -> Iterator[tuple[TestClient, dict]]:
     """Seed the known dataset and yield (client, auth-headers). Skips without a DB."""
-    monkeypatch.setenv("REALTIME_INGEST_TOKEN", _TOKEN)
+    monkeypatch.setenv("SUPABASE_JWT_SECRET", SECRET)
+    monkeypatch.delenv("SUPABASE_PROJECT_REF", raising=False)
     get_settings.cache_clear()
     db_module.close_pool()
     if not _db_reachable():
@@ -43,6 +44,6 @@ def seeded_client(
 
     seed_all()
     client = TestClient(create_app())
-    yield client, {"Authorization": f"Bearer {_TOKEN}"}
+    yield client, auth_header(SENTINEL_USER_ID, SECRET)
     db_module.close_pool()
     get_settings.cache_clear()

@@ -16,6 +16,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from tests._auth import SECRET, auth_header
 
 from healthee.analytics.metrics import KNOWN_METRICS
 from healthee.api.app import create_app
@@ -30,14 +31,14 @@ import _seed_db as sd  # type: ignore[import-not-found]  # noqa: E402 — shared
 
 pytestmark = pytest.mark.integration
 
-_TOKEN = "history-test-token"
-_AUTH = {"Authorization": f"Bearer {_TOKEN}"}
+_AUTH = auth_header(SENTINEL_USER_ID, SECRET)
 
 
 @pytest.fixture
 def api(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
     """A seeded client whose bearer token maps to the sentinel owner."""
-    monkeypatch.setenv("REALTIME_INGEST_TOKEN", _TOKEN)
+    monkeypatch.setenv("SUPABASE_JWT_SECRET", SECRET)
+    monkeypatch.delenv("SUPABASE_PROJECT_REF", raising=False)
     get_settings.cache_clear()
     migrate.apply_migrations()
     sd.clean()

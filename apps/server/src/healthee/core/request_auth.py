@@ -1,52 +1,40 @@
-"""Request identity for `/api/*` and `/ingest/*` — the 6.4b flip, TRANSITIONAL.
+"""Request identity for `/api/*` and `/ingest/*` — the ONE place a request becomes a user.
 
-This module is the ONE place a request becomes a `RequestUser`. It exists as its own
-file (rather than inside `core.supabase_auth`) because everything in it is scaffolding
-with a scheduled demolition date: `supabase_auth` is the permanent Supabase resource-
-server code, and this is the temporary bridge that lets the *un-rebuilt* mobile app —
-which still holds only the single shared `REALTIME_INGEST_TOKEN` — keep working while
-`/api/*` starts authenticating real users. Deleting the transition is deleting the
-legacy branch of the two dependencies below (see `_legacy_shared_token`).
+A request presents exactly one kind of credential and each path has exactly one
+interpretation: `/api/*` takes a Supabase JWT (`supabase_auth.current_user`,
+JIT-provisioning the `app_user` row), `/ingest/*` takes a device token minted by
+this server for one phone (`core.device_token`). Anything else is 401.
 
-**Removal condition (MULTI_USER.md §4, §12.7):** the legacy branch goes when the
-Phase-2 app ships Supabase login, or at 6.5, whichever comes first. It MUST NOT
-survive into public signups: a shared secret that resolves to a real tenant would let
-anyone holding it read and write that tenant's health data, which is exactly the
-"server is the trust boundary" invariant §12.7 exists to protect. It is safe *today*
-only because that secret already grants precisely this one tenant's data — the legacy
-branch reproduces today's behaviour byte-for-byte and grants no new privilege.
+## What used to be here, and why its absence is the point
 
-## The ordering rule (why a rejected JWT can never become sentinel access)
+Until 2026-09-10 both dependencies had a branch in front of them for a single shared
+`REALTIME_INGEST_TOKEN` that resolved to one real tenant, never expired, and shipped
+inside the APK. It was the bridge that kept the un-rebuilt app working while `/api/*`
+learned to authenticate real people, and `MULTI_USER.md` section 4 always said it MUST NOT
+survive into public signups — a static string that reads and writes a real owner's
+health data is the whole "server is the trust boundary" invariant, inverted.
 
-The legacy constant-time comparison runs **first**, and the Supabase branch is the
-`return` that follows it. So the two interpretations are ordered, not raced:
+It is gone now: the owner signs in as themselves, their phone holds a device token of
+its own, and the shared secret has been cleared in production and verified to 401 on
+both paths. `refuse_a_shared_token_beside_open_signups` went with it — a validator
+that existed to stop two settings coexisting has nothing to guard once one of them
+does not exist, and `signups_open` is no longer gated on a removal that has happened.
 
-1. the presented token is compared (`hmac.compare_digest`) against the configured
-   shared token → match means the sentinel owner, and nothing else is tried;
-2. otherwise the token is handed to `supabase_auth.current_user`, whose every failure
-   path *raises* 401.
-
-There is no code after step 2 that could grant anything, so a malformed/expired/
-tampered/alg-swapped JWT is terminal — it cannot "fall through" to the legacy branch,
-because the legacy branch has already been evaluated and rejected it. This is
-deliberately the inverse of a JWT-first design with a shape heuristic: a heuristic
-("does this look like a JWT?") is a guard that has to be *maintained* correctly, while
-ordering makes the fall-through structurally unrepresentable. It also removes a prod
-hazard — a shared token that happened to be JWT-shaped would be misrouted by a
-heuristic and break the live app.
+**A missing `app_user` row is a 401, never a fallback.** Both dependencies below take
+that line; `_active_timezone_of` returning None means the credential names an owner
+who is not there, and authorising one of those is how a request ends up reading zero
+rows under RLS while the person is told their data is missing.
 
 Security note: never log a raw token. Only failure *types* and non-secret ids.
 """
 
 from __future__ import annotations
 
-import hmac
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import Depends, Header
 
-from healthee.core.config import get_settings
 from healthee.core.db import transaction
 from healthee.core.device_token import resolve_device_token
 from healthee.core.logging import get_logger
@@ -57,7 +45,6 @@ from healthee.core.supabase_auth import (
     refuse_unless_active,
     unauthorized,
 )
-from healthee.core.tenancy import SENTINEL_USER_ID
 
 log = get_logger(__name__)
 
@@ -79,70 +66,22 @@ def _active_timezone_of(user_id: UUID) -> str | None:
     return row[0]
 
 
-def _legacy_shared_token(presented: str) -> bool:
-    """True iff `presented` is the single legacy shared token (TRANSITIONAL).
-
-    Constant-time (`hmac.compare_digest`) so a wrong token can't be recovered by
-    timing, and fails closed when the token is not configured: a blank
-    `REALTIME_INGEST_TOKEN` authorizes *nobody* through this branch (it does not
-    become "match everything"), exactly as the removed shared-token guard behaved.
-    """
-    expected = get_settings().realtime_ingest_token
-    if not expected:
-        return False
-    return hmac.compare_digest(presented, expected)
-
-
-def _sentinel_user() -> RequestUser:
-    """The legacy shared token's owner: the sentinel tenant + ITS stored timezone.
-
-    The timezone is read from the sentinel's `app_user` row rather than returned from
-    the `SENTINEL_TZ` constant, so per-user timezone is real for this owner too — the
-    row is the source of truth.
-
-    ## A missing sentinel row is a 401, not a fallback
-
-    It used to log "an anomaly worth logging" and then authorise the request as an owner
-    who does not exist. That is not hypothetical: it is the **documented post-condition
-    of `db/claim_sentinel.py`**, which re-keys the sentinel row to the owner's real
-    Supabase UUID, after which `SENTINEL_USER_ID` has no `app_user` row BY DESIGN.
-
-    The consequence was fail-closed-ish rather than dangerous — every tenant read
-    returns zero rows under RLS and every tenant write violates the `user_id` FK — but
-    neither of those reads to a person as "your credential is no longer valid". One
-    shows an empty life and the other is a 500. `ingest_user` fifteen lines below hits
-    the same condition and correctly raises 401 with the reasoning written out; this now
-    matches it. The legacy branch should die with the sentinel row, not outlive it.
-    """
-    tz = _active_timezone_of(SENTINEL_USER_ID)
-    if tz is None:
-        log.warning("the sentinel app_user row is absent — refusing the legacy shared token")
-        raise unauthorized("Invalid token")
-    return RequestUser(id=SENTINEL_USER_ID, timezone=tz)
-
-
 def request_user(authorization: str | None = Header(default=None)) -> RequestUser:
     """FastAPI dependency: the authenticated tenant for an `/api/*` request.
 
-    Supabase JWT → that real user (JIT-provisioned). Legacy shared token → the
-    sentinel owner (TRANSITIONAL — see the module docstring). Anything else → 401.
+    Supabase JWT → that real user (JIT-provisioned). Anything else → 401.
     """
-    if _legacy_shared_token(bearer_token(authorization)):
-        return _sentinel_user()
     return current_user(authorization)
 
 
 def ingest_user(authorization: str | None = Header(default=None)) -> RequestUser:
     """FastAPI dependency: the owner an `/ingest/*` push is attributed to (§7).
 
-    Device token → its owner; legacy shared token → the sentinel (TRANSITIONAL). An
-    unknown device token is 401: ingest under the wrong owner would be silent
-    cross-tenant corruption of health data, so attribution is never guessed.
+    Device token → its owner. An unknown one is 401: ingest under the wrong owner
+    would be silent cross-tenant corruption of health data, so attribution is never
+    guessed.
     """
-    raw = bearer_token(authorization)
-    if _legacy_shared_token(raw):
-        return _sentinel_user()
-    owner = resolve_device_token(raw)
+    owner = resolve_device_token(bearer_token(authorization))
     if owner is None:
         raise unauthorized("Invalid token")
     tz = _active_timezone_of(owner)

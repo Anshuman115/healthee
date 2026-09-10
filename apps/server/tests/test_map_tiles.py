@@ -24,6 +24,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from tests._auth import SECRET, auth_header
 
 from healthee.api.app import create_app
 from healthee.core import map_tiles
@@ -249,7 +250,10 @@ def client(tile_env: None) -> TestClient:  # noqa: ARG001
 
 
 def _auth() -> dict[str, str]:
-    return {"Authorization": f"Bearer {get_settings().realtime_ingest_token}"}
+    """A real JWT header. The `client` fixture overrides `request_user`, so what
+    matters here is that a credential is PRESENT — `test_the_tile_route_needs_the_
+    bearer_token` runs the real guard on an app with no override."""
+    return auth_header(SENTINEL_USER_ID, SECRET)
 
 
 def test_the_route_serves_a_cached_tile_as_a_png(

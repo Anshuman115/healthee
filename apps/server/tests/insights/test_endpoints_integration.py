@@ -13,6 +13,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from tests._auth import SECRET, auth_header
 from tests.conftest import entitle
 from tests.insights._stub import VALID_TEXT, StubLLM
 
@@ -28,16 +29,16 @@ import _seed_db as sd  # type: ignore[import-not-found]  # noqa: E402 — shared
 
 pytestmark = pytest.mark.integration
 
-_TOKEN = "insights-test-token"
-_AUTH = {"Authorization": f"Bearer {_TOKEN}"}
+_AUTH = auth_header(SENTINEL_USER_ID, SECRET)
 
 
 @pytest.fixture
 def stub(monkeypatch: pytest.MonkeyPatch) -> Iterator[StubLLM]:
-    """One shared stub client the choke point uses, plus the auth token in env."""
+    """One shared stub client the choke point uses, plus the JWT secret in env."""
     client = StubLLM()
     monkeypatch.setattr(grounded, "get_client", lambda: client)
-    monkeypatch.setenv("REALTIME_INGEST_TOKEN", _TOKEN)
+    monkeypatch.setenv("SUPABASE_JWT_SECRET", SECRET)
+    monkeypatch.delenv("SUPABASE_PROJECT_REF", raising=False)
     get_settings.cache_clear()
     yield client
     get_settings.cache_clear()
