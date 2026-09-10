@@ -49,7 +49,7 @@ def test_recommendation_has_audit_columns() -> None:
 def test_schema_reference_lists_every_rls_policy() -> None:
     """`0008`'s policies are represented in the reference, and neither side drifts.
 
-    `schema.sql` states the policy shape once and then NAMES its 16 tables rather than
+    `schema.sql` states the policy shape once and then NAMES its tables rather than
     repeating 48 near-identical statements — which is only honest as long as that list
     stays true. This is what keeps it true: a tenant table policied by a future
     migration but missing from the reference fails here, and so does a table the
@@ -57,7 +57,7 @@ def test_schema_reference_lists_every_rls_policy() -> None:
     """
     schema = _SCHEMA.read_text()
     policied = {table for _, table in _POLICY_RE.findall(_migrations_sql())}
-    assert len(policied) == 18, f"expected the 18 tenant tables, found {sorted(policied)}"
+    assert len(policied) == 19, f"expected the 19 tenant tables, found {sorted(policied)}"
     # The reference lists them in its RLS section; every one must appear there.
     rls_section = schema.split("Row-Level Security (0008_row_level_security)")[-1]
     missing = {table for table in policied if table not in rls_section}

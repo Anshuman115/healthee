@@ -294,7 +294,7 @@ def test_every_tenant_table_has_rls_enabled_and_exactly_one_policy(db: None) -> 
     """
     migrate.apply_migrations()
     tables = _tenant_tables()
-    assert len(tables) == 18, (
+    assert len(tables) == 19, (
         f"expected the 18 tenant tables (§3.2 + subscription + device_daily_total), "
         f"found {len(tables)}: {tables}"
     )

@@ -21,7 +21,8 @@ from __future__ import annotations
 from uuid import UUID
 
 from healthee.core.db import tenant_transaction
-from healthee.insights import pipeline
+from healthee.core.tenancy import user_today
+from healthee.insights import commitments, pipeline
 from healthee.insights.challenge_context import challenge_section
 from healthee.read.recovery import (
     STALE_RECOVERY_DIRECTIVE,
@@ -51,8 +52,37 @@ def build_coach_context(
     with tenant_transaction(user_id) as cur:
         recovery = recovery_score_payload(cur, user_id, tz)
         challenges = challenge_section(cur, user_id)
-    parts = [context, _recovery_block(recovery, tz), challenges]
+    parts = [context, _recovery_block(recovery, tz), challenges, _commitments_block(user_id, tz)]
     return "\n\n".join(p for p in parts if p)
+
+
+def _commitments_block(user_id: UUID, tz: str) -> str:
+    """What they told the coach they would do — the thing a cold start loses.
+
+    Rendered into EVERY turn rather than fetched by a tool, because a coach that has
+    to remember to look something up is a coach that forgets. It is a handful of
+    short rows; the token cost is a rounding error against the evidence block.
+
+    A due commitment is marked, and the marking is the whole point: the coach is
+    told it is time to ask, and is told in the same breath that it does not know
+    the answer. Nothing in this app observes whether somebody did a thing.
+    """
+    open_ones = commitments.open_commitments(user_id)
+    if not open_ones:
+        return ""
+    today = user_today(tz)
+    lines = ["# WHAT THEY COMMITTED TO", ""]
+    for c in open_ones:
+        due = " — **DUE: ask how it went**" if c.due(today) else ""
+        metric = f" (should move `{c.metric}`)" if c.metric else ""
+        lines.append(f'- `[{c.id}]` "{c.stated}"{metric}, check in {c.check_in_on}{due}')
+    lines.append("")
+    lines.append(
+        "You do NOT know whether they did any of these — nothing here observes it. "
+        "Ask, take their word, and call `resolve_commitment`. Never infer that one "
+        "was kept because a number moved."
+    )
+    return "\n".join(lines)
 
 
 def _recovery_block(recovery: dict | None, tz: str) -> str:
