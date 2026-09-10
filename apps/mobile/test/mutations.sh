@@ -3354,6 +3354,49 @@ mutate 'signing in leaves the rejected flag set' \
   '    AppLog.info('"'"'signin'"'"', '"'"'signed in to ${address.host} with a pasted token'"'"');'
 
 
+# ⛔ The release check asks a THIRD PARTY a question that needs no identity. Reusing
+# the app's own client would attach the owner's credential to every one of those
+# requests — quietly, on every app open, forever.
+mutate 'the release check is given a credential-carrying client' \
+  test/updates/release_client_test.dart lib/data/updates/release_client.dart \
+  '      responseType: ResponseType.json,
+      validateStatus: (_) => true,
+      headers: const <String, String>{' \
+  '      responseType: ResponseType.json,
+      validateStatus: (_) => true,
+      headers: const <String, String>{
+        '"'"'Authorization'"'"': '"'"'Bearer leaked-owner-token'"'"',';
+
+# "Up to date" is a CLAIM. An offline phone, a rate limit and a repo with no
+# releases are not evidence for it, and collapsing them into it is the app
+# reassuring somebody about something it never established.
+mutate 'an unestablished check reports up to date' \
+  test/updates/update_check_test.dart lib/data/updates/update_check.dart \
+  '  if (current == null || release == null) {
+    return const UpdateUnknown();
+  }' \
+  '  if (current == null || release == null) {
+    return const UpToDate();
+  }'
+
+# The installer'"'"'s own rule. Comparing version NAMES instead would offer a download
+# that Android then refuses as a downgrade — a 72 MB wait ending in an error the
+# owner cannot act on.
+mutate 'the update comparison uses the version name' \
+  test/updates/app_release_test.dart lib/data/updates/app_release.dart \
+  '  bool isNewerThan(int current) => versionCode > current;' \
+  '  bool isNewerThan(int current) => versionCode >= current;'
+
+# A release whose notes carry no versionCode cannot be compared at all. Treating it
+# as comparable is how the updater starts guessing.
+mutate 'a release with no versionCode is used anyway' \
+  test/updates/app_release_test.dart lib/data/updates/app_release.dart \
+  '    if (versionCode == null) {
+      return null;
+    }' \
+  ''
+
+
 echo
 echo "caught $PASS, survived $FAIL"
 [ "$SKIPPED" -eq 0 ] || echo "SKIPPED $SKIPPED — this was a FILTERED run, not the gate"

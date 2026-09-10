@@ -99,6 +99,11 @@ dependencies:
   # in the row whose whole job is to say which build the owner is running.
   # Resolved by `flutter pub add` at write time, not recalled.
   package_info_plus: ^10.2.1
+  # Opens the release page in the browser when a newer build is published. The
+  # app checks and TELLS; the download and the install are Android's own, which
+  # is why this needs no `REQUEST_INSTALL_PACKAGES` — a permission that lets an
+  # app install packages is a large thing to hold for a courtesy check.
+  url_launcher: ^6.3.2
 
   # ── the legacy design, ported ────────────────────────────────────────────
   # Added 2026-08-05, when the owner made the legacy app the design

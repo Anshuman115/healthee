@@ -44,6 +44,7 @@ import 'package:healthee/data/store/view_date.dart';
 import 'package:healthee/data/sync/connection_state.dart';
 import 'package:healthee/data/sync/sync_controller.dart';
 import 'package:healthee/data/today_repository.dart';
+import 'package:healthee/data/updates/update_check.dart';
 import 'package:healthee/features/settings/app_version.dart';
 import 'package:healthee/features/today/today_screen.dart';
 import 'package:healthee/features/today/v02/today_header.dart';
@@ -247,6 +248,11 @@ Widget _scoped(
       // channel a test host never answers — which would leave that read's own
       // deadline pending after any test that navigated there.
       appVersionProvider.overrideWith((ref) async => null),
+      // Same reason as the version above, twice over: the update check reads that
+      // same platform channel AND reaches GitHub. A widget test must do neither,
+      // and the read's own 3 s deadline would be left pending behind every test
+      // that draws About.
+      updateStatusProvider.overrideWith((ref) async => const UpdateUnknown()),
       // The batched dated series, ALWAYS pinned. The real provider is only
       // watched on a past day, but on a past day it reaches a socket — and an
       // unpinned read there leaves a spinner running that `pumpAndSettle` waits

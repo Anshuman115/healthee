@@ -32,6 +32,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale_forms.dart';
 import 'package:healthee/features/settings/app_version.dart';
+import 'package:healthee/features/settings/widgets/update_notice.dart';
 import 'package:healthee/features/today/v02/today_header.dart';
 import 'package:healthee/shared/v02/buttons.dart';
 import 'package:healthee/shared/v02/emblems.dart';
@@ -112,9 +113,20 @@ class AboutScreen extends ConsumerWidget {
                     '1.1, bundled with this app rather than fetched. Its '
                     'notice and every package licence are below — that is a '
                     'licence term, not a nicety.',
-                footer: Text(
-                  versionLine(ref.watch(appVersionProvider)),
-                  style: FormType.fieldHint.copyWith(color: colors.ink3),
+                // Which build this is, then whether there is a newer one. Two
+                // halves of one question, so they sit together rather than the
+                // second becoming a notification somewhere else.
+                footer: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    Text(
+                      versionLine(ref.watch(appVersionProvider)),
+                      style: FormType.fieldHint.copyWith(color: colors.ink3),
+                    ),
+                    const SizedBox(height: 8),
+                    const UpdateNotice(),
+                  ],
                 ),
               ),
               const SizedBox(height: blockGap),
