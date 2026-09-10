@@ -116,14 +116,15 @@ jobs:
           HEALTHEE_KEY_PASSWORD: ${{ secrets.HEALTHEE_KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          # The build config, never a credential: these describe which server and
-          # which Supabase project, and the anon key is the one meant to ship in a
-          # client. `service_role` belongs on the server and is not referenced here.
-          flutter build apk --release \
-            -PrequireReleaseSigning \
-            --dart-define=HELIO_API='${{ secrets.HELIO_API }}' \
-            --dart-define=SUPABASE_URL='${{ secrets.SUPABASE_URL }}' \
-            --dart-define=SUPABASE_ANON_KEY='${{ secrets.SUPABASE_ANON_KEY }}'
+          # ⛔ NO dart-defines, and that is the point of the release.
+          #
+          # This used to bake in a server address and a Supabase project, which
+          # made the published APK the author's app: install it and you were
+          # pointed at their identity provider and their server. The app now asks
+          # whichever server the owner types which provider to use
+          # (`GET /api/auth-config`), so the artefact carries nothing of anyone's
+          # and the same binary serves everybody.
+          flutter build apk --release -PrequireReleaseSigning
           mv build/app/outputs/flutter-apk/app-release.apk \
              "build/app/outputs/flutter-apk/healthee-${GITHUB_REF_NAME}.apk"
 

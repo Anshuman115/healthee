@@ -415,6 +415,15 @@ exactly one kind (`core/request_auth.py`):
   attributes the push to its owner.
 - Anything else → 401.
 
+The one exception is **`GET /api/auth-config`**, which is unauthenticated and has
+to be: it is the call a client makes in order to learn *how* to authenticate, so
+requiring a credential would be circular. It serves a Supabase project URL and that
+project's **anon** key — both public by construction, the anon key being the one
+designed to ship inside clients. The `service_role` key and the JWT secret are
+served nowhere, and a test asserts that by name. A deployment with no provider
+configured answers `200` with nulls rather than a 404, so the app can tell "this
+server has no sign-in" from "this server predates the question".
+
 Until 2026-09-10 there was a third way in: a single shared `REALTIME_INGEST_TOKEN`
 that resolved to one real tenant, never expired, and shipped inside the APK. It is
 **deleted**, not merely unset — the setting, the branch and the validator that kept
@@ -491,6 +500,8 @@ list; every var below is a field on `core/config.py`'s settings):
 | `POSTGRES_HOST` / `POSTGRES_PORT` | `db` / `5432` for the compose stack |
 | `POSTGRES_APP_USER` / `POSTGRES_APP_PASSWORD` | the **least-privilege** role the request/job pool connects as. **Unset ⇒ the pool falls back to the admin, which bypasses RLS** — the policies stay inert and the startup log warns. Set these in prod (see `infra/DEPLOY.md`) |
 | `SUPABASE_JWT_SECRET` / `SUPABASE_JWT_AUD` / `SUPABASE_PROJECT_REF` / `SUPABASE_SERVICE_ROLE_KEY` | verifying the Supabase access JWT (the backend only verifies; it never issues) |
+| `SUPABASE_ANON_KEY` | **served to the app** by `GET /api/auth-config`, so it can sign in without being compiled against your project. The anon key, which is meant to ship in clients; ⛔ never `service_role` |
+| `SUPABASE_URL` | optional — blank derives `https://<SUPABASE_PROJECT_REF>.supabase.co`. Set it only for a self-hosted GoTrue, which has no project ref |
 | `SIGNUPS_OPEN` / `SIGNUP_ALLOWLIST` | the server-enforced signup gate. Default: closed + empty = nobody new. Safe to open since the shared token was removed — but every new owner costs you a nightly LLM chain |
 | `ALLOW_ADMIN_DB_FALLBACK` | `false`. Explicitly asks for the transitional state where the pool connects as the admin and **RLS is inert**. Only for the two-deploy bootstrap below |
 | `SELF_HOST_UNLOCKED` | entitles **every** owner on this deployment to the premium AI layer, with no `subscription` row. Default `false`. For a SELF-HOSTED box, where the LLM bill is the operator's own — the hosted service must leave it false. Logged as a WARNING on every boot when set, and must reach the **scheduler** container too |
@@ -584,34 +595,45 @@ scratch-DB dry run and the disaster-recovery steps.
 
 ### 6. Building the app
 
-The app is a normal Flutter build plus three `--dart-define`s, kept in an ignored
-`apps/mobile/build.env` (there is a `build.env.example`):
+**The app needs no configuration to talk to your server.** You type your address on
+the sign-in screen; the app asks that server which identity provider it uses
+(`GET /api/auth-config`) and signs in against it. One binary works for everybody,
+which is what makes a published APK not be the author's app.
 
 ```sh
 cd apps/mobile
-cp build.env.example build.env      # then fill it in
-flutter build apk --release --dart-define-from-file=build.env
+flutter build apk --release
 adb install -r build/app/outputs/flutter-apk/app-release.apk
 ```
 
+The discovery call happens **before a password is presented to anyone** — it is
+what decides where that password goes — and it carries no credential of yours: the
+session you already hold belongs to the *previous* server, and this call goes to an
+address you have just typed.
+
+If the server cannot name a provider you are told which of the three it is, because
+each needs a different person to fix it: **it has none configured** (whoever runs it
+must set one), **it is too old to be asked** (they must update it), or **it could
+not be reached** (your connection). Reporting any of those as a wrong password
+would send you to change one that was never the problem.
+
+### The dart-defines are optional now
+
+They remain for a development build aimed at a known project, and as a fallback
+before any server has been asked. **A discovered provider always wins over a
+compiled-in one** — the reverse would quietly make the published APK work for its
+author and nobody else. Keep them in an ignored `apps/mobile/build.env` (there is a
+`build.env.example`) and pass `--dart-define-from-file=build.env`.
+
 | Define | What it is |
 |---|---|
-| `HELIO_API` | your server, e.g. `https://healtheeapi.example.com`. **Only a prefill** — the sign-in screen has an address field and the stored session wins over this. Unset it falls back to `http://127.0.0.1:8765` |
-| `SUPABASE_URL` | your Supabase project URL |
+| `HELIO_API` | prefills the address field, e.g. `https://healtheeapi.example.com`. Only a prefill — the stored session wins, and unset it falls back to `http://127.0.0.1:8765` |
+| `SUPABASE_URL` | a Supabase project URL, used only until a server names one |
 | `SUPABASE_ANON_KEY` | that project's **anon** key. Publishable by design: it identifies the project and authorises nothing on its own. ⛔ **Never `service_role`** — that one bypasses every policy and belongs only on the server |
 
-A build with no Supabase defines still runs: it offers the transitional
-pasted-token form and says why. `AUTHKEY` and `MAC` are deliberately **not**
-defines — they are per-owner secrets that live in the platform keystore, fetched
-from Zepp when you pair (`core/env.dart` argues it).
-
-> ⚠ **Known limitation, and the reason there is no generic public APK yet.** The
-> Supabase project is chosen at COMPILE time, so a published binary names one
-> person's identity provider. For a product whose whole claim is self-hosting, that
-> is backwards. **Planned:** an unauthenticated `GET /api/auth-config` where the
-> server tells the app which project to sign in against, so you point the app at
-> your server and it learns the rest. Until that ships, self-hosting means building
-> the app yourself with your own two values — which the steps above are.
+`AUTHKEY` and `MAC` are deliberately **not** defines — they are per-owner secrets
+that live in the platform keystore, fetched from Zepp when you pair
+(`core/env.dart` argues it).
 
 ### 7. Cutting a release
 
@@ -634,7 +656,7 @@ keytool -genkeypair -v \
 ```
 
 Point local release builds at it with `apps/mobile/android/key.properties` (ignored;
-see `key.properties.example`). For CI, set seven repository secrets — piped or
+see `key.properties.example`). For CI, set **four** repository secrets — piped or
 prompted, so no value lands in your shell history:
 
 ```sh
@@ -642,10 +664,12 @@ base64 -w0 ~/healthee-release.jks | gh secret set HEALTHEE_KEYSTORE_BASE64
 gh secret set HEALTHEE_KEYSTORE_PASSWORD          # prompts
 gh secret set HEALTHEE_KEY_PASSWORD               # prompts
 gh secret set HEALTHEE_KEY_ALIAS --body healthee
-grep -oP '^HELIO_API=\K.*'         apps/mobile/build.env | gh secret set HELIO_API
-grep -oP '^SUPABASE_URL=\K.*'      apps/mobile/build.env | gh secret set SUPABASE_URL
-grep -oP '^SUPABASE_ANON_KEY=\K.*' apps/mobile/build.env | gh secret set SUPABASE_ANON_KEY
 ```
+
+Four, and all four are about signing. **No server address and no Supabase project
+go into the build**, because the app asks the server for those at sign-in — so the
+published APK contains nothing of yours, and the release is the same artefact
+whoever runs it.
 
 Then bump `apps/mobile/pubspec.yaml` and tag. **Both halves of the version matter:**
 
@@ -718,11 +742,10 @@ file cap, no swallowed errors, tests in the same PR, science ported verbatim: se
   shipped 2026-09-10 (C1 + C2); **proactive** and **goal-oriented planning** are
   next (see [`docs/COACH_ROADMAP.md`](docs/COACH_ROADMAP.md)). Per-card confidence
   and weekly review still open; the corpus unification landed early, with Phase 1.
-- **Next, and named because the README claims self-hosting**: an unauthenticated
-  `GET /api/auth-config` so the app learns which Supabase project to sign in
-  against from the server you point it at, instead of being compiled against one.
-  Until that ships, self-hosting means building the app yourself
-  ([Building the app](#6-building-the-app)).
+- **Self-hosting closed the loop 2026-09-10**: `GET /api/auth-config` lets the app
+  learn which Supabase project to sign in against from whichever server you point
+  it at, so the published APK is compiled against nobody's project and the same
+  binary serves everybody ([Building the app](#6-building-the-app)).
 
 ## Documentation
 
