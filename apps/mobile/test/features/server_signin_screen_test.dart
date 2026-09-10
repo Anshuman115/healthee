@@ -127,13 +127,22 @@ void main() {
   });
 
   group('the form', () {
-    testWidgets('prefills the address from the build', (tester) async {
+    testWidgets('SHOWS NO ADDRESS when the build was given none', (tester) async {
+      // A test build has no `HELIO_API`, which since the app started discovering
+      // its identity provider is also the normal case for a PUBLISHED APK: it is
+      // aimed at nobody. `Env.apiBaseUrl` then falls back to
+      // `http://127.0.0.1:8765`, and prefilling that would show the reader an
+      // answer we do not have — a real-looking address, wrong for everyone who did
+      // not build the app, sitting in a field above a button.
+      //
+      // Reported from a real install: "i need to add server address its set as
+      // 127". An empty field asks the question instead; the hint carries the shape.
       await _pump(tester, _host(FakeSecretStore(), ScriptedServer()));
       await tester.pumpAndSettle();
 
       final url = tester.widget<TextField>(find.byType(TextField).first);
-      expect(url.controller!.text, isNotEmpty);
-      expect(url.controller!.text, startsWith('http'));
+      expect(url.controller!.text, isEmpty);
+      expect(find.textContaining('healthee.example.com'), findsOneWidget);
     });
 
     testWidgets('the token field is obscured, and the eye reveals it', (

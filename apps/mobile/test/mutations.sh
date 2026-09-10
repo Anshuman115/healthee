@@ -3486,6 +3486,17 @@ mutate 'a failed provider resolution is memoised as complete' \
     _watch ??= auth.onAuthStateChange.listen(_persist, onError: _noteStreamError);'
 
 
+# Reported from a real install: "i need to add server address its set as 127".
+# A published APK is aimed at nobody, so `Env.apiBaseUrl` falls back to loopback —
+# and prefilling that shows the reader an answer we do not have: a real-looking
+# address, wrong for everyone who did not build the app, above a button.
+mutate 'the loopback fallback is prefilled as if it were an answer' \
+  test/features/server_signin_screen_test.dart \
+  lib/features/signin/server_signin_screen.dart \
+  "String get _suggestedAddress => Env.isUsingFallbackApi ? '' : Env.apiBaseUrl;" \
+  'String get _suggestedAddress => Env.apiBaseUrl;'
+
+
 echo
 echo "caught $PASS, survived $FAIL"
 [ "$SKIPPED" -eq 0 ] || echo "SKIPPED $SKIPPED — this was a FILTERED run, not the gate"
