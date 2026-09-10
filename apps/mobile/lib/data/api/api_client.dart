@@ -81,9 +81,14 @@ Dio apiClient(Ref ref) {
     // and every background sync. `ref.read`, not `watch`: watching the
     // repository here would rebuild this client — and its connection pool —
     // every time the flag it sets changes.
+    //
+    // ⛔ Invalidated ONCE per rejection — `noteRejected` owns that decision and
+    // argues it. Announcing every 401 is a closed loop: invalidate → rebuild →
+    // request → 401.
     SessionGuardInterceptor(() {
-      ref.read(serverSessionRepositoryProvider).rejected = true;
-      ref.invalidate(serverSessionProvider);
+      if (ref.read(serverSessionRepositoryProvider).noteRejected()) {
+        ref.invalidate(serverSessionProvider);
+      }
     }),
     ApiLogInterceptor(logBodies: Env.logHttpBodies),
   ]);

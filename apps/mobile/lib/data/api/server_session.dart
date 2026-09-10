@@ -278,6 +278,29 @@ class ServerSessionRepository {
   /// whatever rejected it, and the way to find out is to make one request.
   bool rejected = false;
 
+  /// Records a 401, and answers whether this is the FIRST one for this session.
+  ///
+  /// ⛔ The false return is what breaks a closed loop, and it is the reason this
+  /// is a method rather than an assignment at the call site. `api_client` reacts
+  /// to a rejection by invalidating `serverSessionProvider`; the screens watch
+  /// that provider, so invalidating it rebuilds them, and a rebuilt screen makes
+  /// its request again — which 401s. Measured in production on 2026-09-10:
+  /// **1,280 requests in four minutes**, every one a 401, from one phone.
+  ///
+  /// It also held every screen in its LOADING state, because each request was
+  /// reset before it could settle into an error. The owner watched a spinner
+  /// over a session that had already ended. Announcing a rejection once is what
+  /// lets the failure be seen.
+  ///
+  /// Cleared by a new sign-in, like the flag itself.
+  bool noteRejected() {
+    if (rejected) {
+      return false;
+    }
+    rejected = true;
+    return true;
+  }
+
   /// What is held right now.
   ///
   /// A token with no address reads as **signed out**, the same way
