@@ -18,6 +18,7 @@ import 'package:healthee/features/workouts/v02/session_rows.dart';
 import 'package:healthee/features/workouts/workout_detail_screen.dart';
 import 'package:healthee/features/workouts/workout_detail_sections.dart';
 import 'package:healthee/features/workouts/workout_history_screen.dart';
+import 'package:healthee/shared/format/date_labels.dart';
 import 'package:healthee/shared/v02/data_footer.dart';
 
 import '../_today_stubs.dart';
@@ -53,6 +54,8 @@ void _inOrder(List<String> texts, List<String> order) {
 }
 
 void main() {
+  _sessionInstantFormat();
+
   useRealFonts();
 
   group('the session list is H.screens.workouts', () {
@@ -65,7 +68,11 @@ void main() {
         'Your workouts.', // the detail head's h1
         kRecordLabel, // H.link('Record a workout', …, 'button full')
         'The latest 100 uploaded sessions', // what the list leaves out
-        'JUL 31', // <p class="tiny-label">
+        // Derived for the same reason the detail header's is: the caption is
+        // `prettyDate` over the session's LOCAL day, so a literal is only true
+        // in the zone it was written in. West of UTC this fixture falls on the
+        // 30th.
+        prettyDate(sessionsFixture().first.start.toLocal().toIso8601String()),
         'Outdoor run', // the .workout-row row
         StrengthCard.title, // H.section('Weekly strength')
         'Recorded strength activity',
@@ -127,7 +134,12 @@ void main() {
       await _pump(tester, const WorkoutDetailScreen(start: kWorkoutStart));
 
       _inOrder(textsOn(tester), <String>[
-        '31 Jul · 07:00', // .page-header .date, above the title
+        // Derived, not written out: the header renders the fixture instant in
+        // the MACHINE's zone, so a literal here passes at UTC+5:30 and fails on
+        // a UTC runner — which is exactly how it failed, silently, for twelve
+        // consecutive CI runs. What this test is about is ORDER; the format
+        // itself is pinned zone-independently by `sessionInstant` below.
+        sessionInstant(workoutFixture()),
         'Outdoor run.', // the detail head's h1
         'Distance', // .three
         'Duration',
@@ -182,5 +194,29 @@ void main() {
       expect(find.text(kEnergyInstrument), findsOneWidget);
       expect(find.text(kDriftCaveat), findsOneWidget);
     });
+  });
+}
+
+/// The header's FORMAT, pinned without depending on the machine's zone.
+///
+/// `DateTime(2026, 7, 31, 7, 0)` is 07:00 LOCAL wherever this runs, so the
+/// expected string is the same everywhere — which a UTC instant can never be.
+/// The order test above derives its anchor from the app's own formatter; this is
+/// the assertion that the formatter is right, and the two together are what the
+/// single literal used to do badly.
+void _sessionInstantFormat() {
+  test('the header reads `31 Jul · 07:00` for 07:00 local on 31 July', () {
+    final local = DateTime(2026, 7, 31, 7);
+    final detail = workoutFixture(
+      mutate: (json) => <String, Object?>{
+        ...json,
+        'workout': <String, Object?>{
+          ...json['workout']! as Map<String, Object?>,
+          'start_iso': local.toUtc().toIso8601String(),
+        },
+      },
+    );
+
+    expect(sessionInstant(detail), '31 Jul · 07:00');
   });
 }
