@@ -242,11 +242,13 @@ It refuses rather than guesses: target == sentinel · target never signed in ·
 target already owns data (a merge is a judgement call, not this tool's to make).
 Nothing to move ⇒ it says so and exits 0, so a re-run after success is a no-op.
 
-### B5. ⛔ Do NOT set `SIGNUPS_OPEN=true`
+### B5. ⛔ Do NOT set `SIGNUPS_OPEN=true` until B7 is done
 
-Not until the **Phase-2 mobile app ships Supabase login**. The legacy shared
-token (`REALTIME_INGEST_TOKEN`) still resolves to a real tenant — the sentinel /
-the owner after B4 — and the live app authenticates with it. A shared secret that
+**The precondition is now met: the app ships Supabase login.** What gates this
+flag is not that — it is B7, *removing the legacy token*. Until then the shared
+`REALTIME_INGEST_TOKEN` still resolves to a real tenant, and `core/config.py`
+refuses to boot with both set, which is the check that makes this paragraph
+enforceable rather than advisory. A shared secret that
 resolves to a real tenant must never coexist with open signups: anyone holding it
 reads and writes that tenant's health data. That is exactly the hole
 `MULTI_USER.md` §12.7 exists to close. Opening signups is gated on **removing the
@@ -313,6 +315,74 @@ every boot when it is set, so an accidental one is visible in `docker compose lo
 
 Rollback of just this step: `grant_premium <uuid> --revoke --apply` (writes `canceled`;
 the row and its history are kept).
+
+---
+
+### B7. Retiring the shared token — the step that closes the hole
+
+Everything before this makes per-owner identity *possible*. This is the step that
+makes it *exclusive*. Until it is done, `REALTIME_INGEST_TOKEN` is still a
+never-expiring string that authenticates as a whole tenant with no identity
+attached, and handing it to a second person hands them the first person's health
+record.
+
+**Order matters, and every step is reversible until the last.**
+
+1. **Ship the app build with an identity provider.** Two new dart-defines, both
+   public by design — the anon key identifies the project and authorises nothing
+   on its own:
+   ```sh
+   flutter build apk --release \
+     --dart-define=HELIO_API=https://healtheeapi.afk.codes \
+     --dart-define=SUPABASE_URL=https://<ref>.supabase.co \
+     --dart-define=SUPABASE_ANON_KEY=<the anon key, NOT the service_role key>
+   ```
+   ⛔ `SUPABASE_SERVICE_ROLE_KEY` bypasses every policy and belongs only on the
+   server. It must never be given to a build.
+
+   A build without these still works: it shows the pasted-token form and says so.
+   That is the self-hoster with no Supabase project, and it is a supported state.
+
+2. **Allowlist the owner and sign in**, exactly as B4 describes. The app will
+   mint this phone a device token of its own on that sign-in.
+
+3. **Run the claim** (B4 steps 4–5) so the owner's history moves from the
+   sentinel to their real UUID. Their phone keeps working throughout: it is
+   holding a device token, and `device_token`'s FK is `ON UPDATE CASCADE`, so the
+   re-key takes the token with it.
+
+4. **Verify the phone is off the shared token before removing it.** The one check
+   that matters, and it is a `SELECT`:
+   ```sh
+   ssh contabo 'docker exec -i healthee-db psql -U healthee -d healthee -t -A -c \
+     "SELECT count(*) FROM device_token WHERE revoked_at IS NULL;"'
+   ```
+   A count of at least one means a phone has its own credential. Zero means the
+   only thing reaching `/ingest/*` is still the shared token, and removing it now
+   stops ingestion.
+
+5. **Remove `REALTIME_INGEST_TOKEN` from `infra/.env`** and redeploy. Blank fails
+   closed — `_legacy_shared_token` authorises *nobody* through that branch rather
+   than matching everything — so a pasted token stops working immediately and a
+   device token and a JWT go on working.
+
+6. **Now** `SIGNUPS_OPEN=true` (or an allowlist) is safe, and the config validator
+   will let the API boot with it.
+
+7. **Delete the transitional code.** It is dead once the secret is gone, and dead
+   auth scaffolding is the kind that comes back:
+   * `core/request_auth.py` — the `_legacy_shared_token` / `_sentinel_user` branch
+     of both dependencies;
+   * `data/api/server_session.dart` — `signInWithToken`;
+   * `features/signin/widgets/token_signin_form.dart` — the whole file;
+   * `StoredCredentialKind.shared` and the code that reads it.
+
+**Rollback.** Steps 1–4 change nothing on the server. Step 5 is one line in
+`.env` and a redeploy; putting it back restores the old behaviour exactly, and
+nothing about a device token or a JWT is affected either way. Step 3 is the one
+that is not casually reversible — it is a data re-key — and it is the step
+`claim_sentinel` makes you dry-run first, printing the target's email so you
+confirm the human and not just a UUID that parsed.
 
 ---
 

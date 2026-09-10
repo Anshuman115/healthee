@@ -79,6 +79,11 @@ Conventional Commits, small thematic batches, short-lived branches, hooks via
   execute; migrations are committed modules, not pasted shell.
 - Scrollable chart screens use `ListView.builder` + reveal-once animation, or
   charts replay on every scroll.
-- App build secrets via `--dart-define`: `AUTHKEY`, `MAC`, `HELIO_API`,
-  `HELIO_TOKEN` (the PROD token — never the local `.env` one; verify with
-  `curl -H "Authorization: Bearer <tok>" $HELIO_API/api/today` → 200).
+- App build config via `--dart-define`: `HELIO_API`, plus `SUPABASE_URL` and
+  `SUPABASE_ANON_KEY` for a build that can sign in. The **anon** key, never
+  `service_role` — that one bypasses every policy and belongs on the server.
+  A build without the two Supabase defines still works: it offers the
+  transitional pasted-token form and says why. `AUTHKEY`/`MAC` are NOT defines —
+  they are per-owner secrets in the keystore (`core/env.dart` says why), and
+  neither is a bearer token: since the Supabase sign-in landed, the app mints
+  its own device token per phone.

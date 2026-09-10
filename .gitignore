@@ -42,3 +42,4 @@ scratch/
 .DS_Store
 .idea/
 .vscode/
+apps/mobile/build.env

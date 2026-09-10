@@ -63,6 +63,11 @@ def get_me(user: SupabaseUser) -> MeResponse:
     return MeResponse(id=user.id, timezone=user.timezone)
 
 
+# A device name, not a document. Long enough for "Ashish's Pixel 8 Pro" and short
+# enough that the column is not somewhere to put a payload.
+_LABEL_MAX = 80
+
+
 class DeviceTokenRequest(BaseModel):
     """What the caller says this token is for.
 
@@ -97,11 +102,6 @@ def _label(body: DeviceTokenRequest | None) -> str | None:
         return None
     trimmed = body.label.strip()
     return trimmed[:_LABEL_MAX] if trimmed else None
-
-
-# A device name, not a document. Long enough for "Ashish's Pixel 8 Pro" and short
-# enough that the column is not somewhere to put a payload.
-_LABEL_MAX = 80
 
 
 class DeviceListItem(BaseModel):
