@@ -3497,6 +3497,29 @@ mutate 'the loopback fallback is prefilled as if it were an answer' \
   'String get _suggestedAddress => Env.apiBaseUrl;'
 
 
+# ⛔ A program the coach designed reached NO screen. `create_program` wrote a
+# ladder in `suggested`, the feed served it with every field the client parses, and
+# the deck knew about two of the three feeds. Found on a real install: the owner
+# went looking for a six-week ladder and it was nowhere — which is also why it was
+# still `suggested` with no adopted_at. There was never a button.
+mutate 'suggested programs are dropped from the deck again' \
+  test/features/program_in_deck_test.dart \
+  lib/features/actions/v02/suggestion_list.dart \
+  '      if (repository != null)
+        for (final program in programs?.suggested ?? const <HealthProgram>[])
+          DeckItem.program(program, repository, ref),' \
+  ''
+
+# A ladder commits you to an ORDER, not a number. Quoting the first rung's target
+# reads as the whole commitment when it is only the first step, and the point of a
+# ladder is that the target moves.
+mutate 'a program quotes its first rung as the commitment' \
+  test/features/program_in_deck_test.dart \
+  lib/features/actions/v02/deck_item.dart \
+  "        '\${program.rungs.length} rungs, one at a time'" \
+  "        '\${program.rungs.first.target.round()} steps'"
+
+
 echo
 echo "caught $PASS, survived $FAIL"
 [ "$SKIPPED" -eq 0 ] || echo "SKIPPED $SKIPPED — this was a FILTERED run, not the gate"
