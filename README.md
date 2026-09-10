@@ -11,11 +11,11 @@ enough data"* always beats an optimistic guess. It exists to tell you the truth
 about your body and nudge you toward the next real improvement — not to hand out
 green rings.
 
-> **Status:** the backend is **complete, deployed, and multi-tenant** (Phase 1
-> rebuilt clean and Phase 6 multi-user shipped — 728 tests green against a real
-> TimescaleDB, validated end-to-end on 4 months of real data). Production runs
-> from this repo. The Flutter app rebuild (Phase 2) is next, and it is the gate on
-> two things: retiring the transitional shared-token auth, and opening signups.
+> **Status:** the backend is **complete, deployed, and multi-tenant**, and the
+> Flutter app ships Supabase sign-in. Production runs from this repo. The
+> transitional shared token that let the un-rebuilt app authenticate as one tenant
+> was **removed on 2026-09-10**: `/api/*` takes a Supabase JWT, `/ingest/*` takes a
+> per-device token this server minted, and there is no third way in.
 > This is a clean rebuild; the previous implementation is archived as reference.
 
 ---
@@ -30,6 +30,8 @@ green rings.
 - [Repository layout](#repository-layout)
 - [API surface](#api-surface)
 - [Self-hosting guide](#self-hosting-guide)
+  - [Building the app](#6-building-the-app)
+  - [Cutting a release](#7-cutting-a-release)
 - [Development](#development)
 - [Roadmap](#roadmap)
 - [Documentation](#documentation)
@@ -145,7 +147,11 @@ These five principles are product law, enforced in code (see
 
 ## Choosing the model — what we measured
 
-The coach runs on **`deepseek/deepseek-v4-flash-0731`**. We measured three models,
+The coach runs on **`deepseek/deepseek-v4.1-flash`** since 2026-09-10 — see
+[the upgrade](#upgraded-to-v41-flash-2026-09-10) at the end of this section. The
+comparison below is the one that chose DeepSeek in the first place, and it ran on
+`deepseek-v4-flash-0731`; it is kept as the record of what was actually measured.
+We measured three models,
 briefly shipped the wrong one on a 100% ship rate, **reverted within the hour**, then
 built the test that would have caught it and re-decided on that. The reversal is the most
 useful thing on this page — a ship-rate benchmark cannot see the failure that matters.
@@ -309,6 +315,35 @@ and RHR. Neither invented a number — HRV 45 ms and RHR 55 bpm are real — but
 a quieter failure than fabricating, and the fix is ours: see the deterministic
 personal-claim check in the open items.
 
+### Upgraded to `v4.1-flash` (2026-09-10)
+
+A newer DeepSeek flash, measured on production against the harness's own coach
+questions, scored by the same blocking validator. Read-only — not the harness
+itself, which truncates its database. Four timing runs, one quality run, $0.33.
+
+| | `v4-flash-0731` | `v4.1-flash` |
+|---|---|---|
+| **passed** | **10 / 12** | **12 / 12** |
+| average | 146.1 s | **21.6 s** |
+| worst question | 473.3 s | 37.6 s |
+| throughput | ~25 tok/s | **~150 tok/s** |
+| tool calls **per round** | **1** | **3–8** |
+
+Both failures on the old model pass on the new one. One of them is worth naming:
+asked about caffeine, `0731` asserted a value for an owner with **zero logged
+caffeine days**, the validator caught it, and the honest fallback shipped — the
+grounding layer working, but no answer for the person who asked.
+
+**The last row is the bigger win and it was not the one we went looking for.** The
+old model requests ONE tool at a time, so every tool costs a full round trip. The
+new one batches four to eight. Rounds are where the wall-clock actually goes, so the
+two effects multiply.
+
+⚠ What this does **not** measure: cost per answer (the new model emits more output
+and calls more tools), and whether the ADVICE is better. The gate scores grounding —
+citations resolve, wording matches the evidence grade, safety refusals fire — not
+coaching.
+
 ### What this settles
 
 The structural-citation fix lifted every model and cut output tokens 57%. Every
@@ -345,7 +380,7 @@ apps/server/          Python backend
     jobs/             scheduler + the supervised event chain (correlate→recs→warm→briefing)
     api/              app wiring + thin routers
   tests/              unit · integration (seeded DB) · contract snapshots
-apps/mobile/          Flutter app (Phase 2)
+apps/mobile/          Flutter app — Riverpod · 60-day local store · on-device analytics
 packages/knowledge/   graded research corpus (notes/ + sports-science/) + generated manifest
 packages/contracts/   API contract snapshots shared server↔mobile
 infra/                Dockerfile · compose (dev + prod) · nginx · deploy.sh · backup
@@ -354,20 +389,27 @@ docs/                 architecture · engineering standards · intelligence · c
 
 ## API surface
 
-All endpoints except `/healthz` require a `Bearer` token. Auth is **dual and
-transitional** (`core/request_auth.py`):
+All endpoints except `/healthz` require a `Bearer` token, and each path takes
+exactly one kind (`core/request_auth.py`):
 
-- **A Supabase JWT** → that real user, JIT-provisioned on first sight (subject to
-  the signup gate below). This is the permanent path — the backend is a *resource
-  server*: it verifies Supabase's JWT, it never issues one.
-- **The legacy shared `REALTIME_INGEST_TOKEN`** → the single sentinel owner. This
-  keeps the un-rebuilt app working and **goes away when Phase 2 ships Supabase
-  login**. `/api/me` and `/api/device` pointedly reject it: minting a device token
-  is minting a long-lived credential.
-- Anything else → 401. `/ingest/*` additionally accepts a per-user **device token**
-  (stored hash-only), which attributes the push to its owner.
+- **`/api/*` — a Supabase JWT** → that real user, JIT-provisioned on first sight
+  (subject to the signup gate below). The backend is a *resource server*: it
+  verifies Supabase's JWT, it never issues one.
+- **`/ingest/*` — a per-device token** this server minted (stored hash-only), which
+  attributes the push to its owner.
+- Anything else → 401.
 
-**Do not set `SIGNUPS_OPEN=true` while the shared-token branch is alive** — a
+Until 2026-09-10 there was a third way in: a single shared `REALTIME_INGEST_TOKEN`
+that resolved to one real tenant, never expired, and shipped inside the APK. It is
+**deleted**, not merely unset — the setting, the branch and the validator that kept
+it away from open signups are all gone. A static string that reads and writes a real
+owner's health record is the trust boundary inverted, and the only safe version of
+it is one that cannot be configured.
+
+**`SIGNUPS_OPEN=true` is now safe on the auth side, and is a SPENDING decision** —
+every active owner gets a nightly LLM chain, so opening signups opens your bill to
+strangers. Use `SIGNUP_ALLOWLIST` unless you mean it. What follows is the argument
+for why it used to be unsafe, kept because the reasoning outlives the setting: a
 shared secret that resolves to a real tenant must never coexist with public
 signups. New accounts are otherwise gated by `SIGNUP_ALLOWLIST` (see
 [`docs/MULTI_USER.md`](docs/MULTI_USER.md) §4.4b).
@@ -410,7 +452,7 @@ to the internet; the API is reachable only through nginx over TLS.
 - A Linux VPS with Docker + Docker Compose.
 - A domain name pointing at it (for TLS), e.g. `healtheeapi.example.com`.
 - The Amazfit Helio Strap + the Flutter app built with your device's pairing key
-  (Phase 2; until then the backend accepts pushes from any client with the token).
+  (see [Building the app](#6-building-the-app)).
 
 ### 1. Clone & configure
 ```sh
@@ -419,7 +461,7 @@ cp infra/.env.example infra/.env
 # edit infra/.env — generate real secrets:
 #   openssl rand -base64 48 | tr -d '/+=' | head -c 32   # for each token
 ```
-Set at minimum `POSTGRES_PASSWORD` and `REALTIME_INGEST_TOKEN`. If you want the AI
+Set at minimum `POSTGRES_PASSWORD`. If you want the AI
 surfaces you need `OPENROUTER_API_KEY` **and** `DEFAULT_MODEL` + `COACH_MODEL` —
 they have no defaults, and a prod env missing the model ids is a real failure this
 project has already had.
@@ -432,15 +474,21 @@ list; every var below is a field on `core/config.py`'s settings):
 | `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD` | the **admin/owner** credentials — migrations, `claim_sentinel`, `provision_app_role` |
 | `POSTGRES_HOST` / `POSTGRES_PORT` | `db` / `5432` for the compose stack |
 | `POSTGRES_APP_USER` / `POSTGRES_APP_PASSWORD` | the **least-privilege** role the request/job pool connects as. **Unset ⇒ the pool falls back to the admin, which bypasses RLS** — the policies stay inert and the startup log warns. Set these in prod (see `infra/DEPLOY.md`) |
-| `REALTIME_INGEST_TOKEN` | the legacy shared token → the sentinel owner (transitional, see [API surface](#api-surface)) |
 | `SUPABASE_JWT_SECRET` / `SUPABASE_JWT_AUD` / `SUPABASE_PROJECT_REF` / `SUPABASE_SERVICE_ROLE_KEY` | verifying the Supabase access JWT (the backend only verifies; it never issues) |
-| `SIGNUPS_OPEN` / `SIGNUP_ALLOWLIST` | the server-enforced signup gate. Default: closed + empty = nobody new. **Keep `SIGNUPS_OPEN=false` until Phase 2 ships Supabase login** |
+| `SIGNUPS_OPEN` / `SIGNUP_ALLOWLIST` | the server-enforced signup gate. Default: closed + empty = nobody new. Safe to open since the shared token was removed — but every new owner costs you a nightly LLM chain |
+| `ALLOW_ADMIN_DB_FALLBACK` | `false`. Explicitly asks for the transitional state where the pool connects as the admin and **RLS is inert**. Only for the two-deploy bootstrap below |
 | `SELF_HOST_UNLOCKED` | entitles **every** owner on this deployment to the premium AI layer, with no `subscription` row. Default `false`. For a SELF-HOSTED box, where the LLM bill is the operator's own — the hosted service must leave it false. Logged as a WARNING on every boot when set, and must reach the **scheduler** container too |
 | `UPGRADE_URL` | where a locked card sends someone. Carried verbatim in the 402 body and by `GET /api/entitlement`; blank until a billing provider is chosen |
 | `API_HOST` / `API_PORT` | in-container bind (`0.0.0.0` / `8765`) |
 | `OPENROUTER_API_KEY` | optional — enables the grounded LLM (coach, insights, recs) |
 | `DEFAULT_MODEL` / `COACH_MODEL` | **required with `OPENROUTER_API_KEY`** — the model ids; no defaults |
 | `LLM_TIMEOUT_S` / `LLM_MAX_RETRIES` | LLM call bounds (`60` / `1`) — the SDK default is a 30-minute hang, so this is not optional tuning |
+| `GATHERING_DEADLINE_S` | `150`. How long ONE grounded run may spend running tools before it must answer with what it has. Rounds alone did not bound this: at ~100 s a round the coach's 20-round ceiling was half an hour against an app that waits 360 s, and **no coach request ever completed**. Hitting it is not an abort — gathering stops and the next turn answers |
+| `LLM_VALIDATION_RETRIES` | `2`. Nudged rewrites one answer gets before the honest fallback ships. Reserved ON TOP of the gathering allowance |
+| `LLM_PROVIDER_ORDER` | empty. Ordered OpenRouter provider tags the coach tier prefers; fallbacks stay on, so it is a preference and not a restriction. Empty = OpenRouter's own routing, which is what production runs |
+| `PREMIUM_COACH_QUESTIONS` | the coach allowance per rolling 30 local days. `0` means **unlimited**, which is the right answer on a box paying its own LLM bill |
+| `MAP_TILE_URL` / `MAP_TILE_ATTRIBUTION` / `MAP_TILE_MIN_ZOOM` / `MAP_TILE_MAX_ZOOM` / `MAP_TILE_CACHE_DIR` / `MAP_TILE_CACHE_MB` | the basemap the server proxies and caches. The phone never talks to a tile provider — a tile request says where somebody is looking |
+| `SRTM_CACHE_DIR` | on-disk cache for public elevation tiles (`derive/dem.py`) |
 | `LLM_LOW_BALANCE_USD` | `20` — the OpenRouter balance the scheduler warns below (`infra/DEPLOY.md` §E) |
 | `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` | optional — daily briefing, failure alerts, and the LLM-outage/low-balance alerts |
 | `LOG_LEVEL` | `INFO` |
@@ -518,6 +566,99 @@ It dumps gzipped to `BACKUP_DIR`, prunes past `BACKUP_RETENTION_DAYS`, and runs
 restore** — see [`infra/backup/RESTORE.md`](infra/backup/RESTORE.md) for the
 scratch-DB dry run and the disaster-recovery steps.
 
+### 6. Building the app
+
+The app is a normal Flutter build plus three `--dart-define`s, kept in an ignored
+`apps/mobile/build.env` (there is a `build.env.example`):
+
+```sh
+cd apps/mobile
+cp build.env.example build.env      # then fill it in
+flutter build apk --release --dart-define-from-file=build.env
+adb install -r build/app/outputs/flutter-apk/app-release.apk
+```
+
+| Define | What it is |
+|---|---|
+| `HELIO_API` | your server, e.g. `https://healtheeapi.example.com`. **Only a prefill** — the sign-in screen has an address field and the stored session wins over this. Unset it falls back to `http://127.0.0.1:8765` |
+| `SUPABASE_URL` | your Supabase project URL |
+| `SUPABASE_ANON_KEY` | that project's **anon** key. Publishable by design: it identifies the project and authorises nothing on its own. ⛔ **Never `service_role`** — that one bypasses every policy and belongs only on the server |
+
+A build with no Supabase defines still runs: it offers the transitional
+pasted-token form and says why. `AUTHKEY` and `MAC` are deliberately **not**
+defines — they are per-owner secrets that live in the platform keystore, fetched
+from Zepp when you pair (`core/env.dart` argues it).
+
+> ⚠ **Known limitation, and the reason there is no generic public APK yet.** The
+> Supabase project is chosen at COMPILE time, so a published binary names one
+> person's identity provider. For a product whose whole claim is self-hosting, that
+> is backwards. **Planned:** an unauthenticated `GET /api/auth-config` where the
+> server tells the app which project to sign in against, so you point the app at
+> your server and it learns the rest. Until that ships, self-hosting means building
+> the app yourself with your own two values — which the steps above are.
+
+### 7. Cutting a release
+
+Releases are **tag-driven**. `git tag v1.2.3 && git push --tags` runs
+[`.github/workflows/release.yml`](.github/workflows/release.yml), which gates,
+builds a signed APK and publishes it. The app checks for new ones itself — see
+[the update check](apps/mobile/lib/data/updates/) — reading the public releases API
+anonymously, with no credential of yours attached.
+
+**⛔ The signing key IS the update channel.** Android refuses an update whose
+signature does not match the installed app. So the key must not change once anybody
+has installed a release built with it, and losing it means every user has to
+uninstall — which takes their keystore with it: strap pairing, session, and any
+samples the phone had not pushed. Back it up like a password-manager export.
+
+```sh
+keytool -genkeypair -v \
+  -keystore ~/healthee-release.jks -storetype JKS \
+  -keyalg RSA -keysize 4096 -validity 10000 -alias healthee
+```
+
+Point local release builds at it with `apps/mobile/android/key.properties` (ignored;
+see `key.properties.example`). For CI, set seven repository secrets — piped or
+prompted, so no value lands in your shell history:
+
+```sh
+base64 -w0 ~/healthee-release.jks | gh secret set HEALTHEE_KEYSTORE_BASE64
+gh secret set HEALTHEE_KEYSTORE_PASSWORD          # prompts
+gh secret set HEALTHEE_KEY_PASSWORD               # prompts
+gh secret set HEALTHEE_KEY_ALIAS --body healthee
+grep -oP '^HELIO_API=\K.*'         apps/mobile/build.env | gh secret set HELIO_API
+grep -oP '^SUPABASE_URL=\K.*'      apps/mobile/build.env | gh secret set SUPABASE_URL
+grep -oP '^SUPABASE_ANON_KEY=\K.*' apps/mobile/build.env | gh secret set SUPABASE_ANON_KEY
+```
+
+Then bump `apps/mobile/pubspec.yaml` and tag. **Both halves of the version matter:**
+
+- the tag must equal the version NAME (`v1.0.0` ↔ `version: 1.0.0+2`);
+- the `+N` is Android's `versionCode`, and it must **increase**. An equal or lower
+  one is a downgrade the installer refuses, whatever the name says. The workflow
+  reads the previous value back out of the last release's notes and refuses a tag
+  that did not raise it.
+
+**Two things the workflow will not let past**, both learned the expensive way:
+
+- A **debug-signed** APK. Release builds used to fall back to the debug key — which
+  is generated per machine, so a CI build could never have updated a local one. The
+  workflow passes `-PrequireReleaseSigning` (the build fails rather than falls back)
+  and then reads the certificate back out of the finished artefact with `apksigner`.
+  It **fails closed**: no apksigner, or no readable certificate, is a refusal. The
+  first version of that check read `META-INF/*.RSA`, which v2/v3-signed APKs do not
+  have, so it found nothing and passed everything.
+- A **red gate**. A release runs the same `flutter analyze` + `flutter test` as CI.
+  The artefact people install through the updater is the one nobody reviews on its
+  way to a phone, so a tag is a request to publish, not a promise that it is
+  publishable.
+
+> ⚠ **Moving from a debug-signed install to a signed release costs one uninstall.**
+> Android will not update across a signature change. It happens once, ever. Sync the
+> strap first: the server has your history and the strap keys come back from Zepp on
+> login, but anything unsent dies with the local store.
+
+
 ## Development
 
 ```sh
@@ -557,10 +698,15 @@ file cap, no swallowed errors, tests in the same PR, science ported verbatim: se
   die and signups open.
 - **Phase 3 — on-device tier**: local mirror + `/api/sync/down` + offline-first.
 - **Phase 4 — device analytics**: provisional metrics on-device, parity-tested.
-- **Phase 5 — companion intelligence**: per-card confidence, weekly review, coach
-  memory → outcome ledger → proactive → goal-oriented planning
-  (see [`docs/COACH_ROADMAP.md`](docs/COACH_ROADMAP.md)), knowledge reconciliation
-  (the corpus unification already landed early, with Phase 1).
+- **Phase 5 — companion intelligence**: coach **memory** and the **outcome ledger**
+  shipped 2026-09-10 (C1 + C2); **proactive** and **goal-oriented planning** are
+  next (see [`docs/COACH_ROADMAP.md`](docs/COACH_ROADMAP.md)). Per-card confidence
+  and weekly review still open; the corpus unification landed early, with Phase 1.
+- **Next, and named because the README claims self-hosting**: an unauthenticated
+  `GET /api/auth-config` so the app learns which Supabase project to sign in
+  against from the server you point it at, instead of being compiled against one.
+  Until that ships, self-hosting means building the app yourself
+  ([Building the app](#6-building-the-app)).
 
 ## Documentation
 
@@ -576,6 +722,8 @@ file cap, no swallowed errors, tests in the same PR, science ported verbatim: se
 | [docs/COACH_ROADMAP.md](docs/COACH_ROADMAP.md) | The coach's companion features (memory · ledger · proactive · goals) |
 | [docs/KNOWLEDGE_RECONCILIATION.md](docs/KNOWLEDGE_RECONCILIATION.md) | Plan to unify the two research corpora without losing content |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Commit conventions, branch strategy, hooks, CI |
+| [apps/mobile/README.md](apps/mobile/README.md) | The app: layout, the dart-define rule, the local store, the test gates |
+| [docs/HOW_WE_VERIFY.md](docs/HOW_WE_VERIFY.md) | Mutation testing and its four ways of lying; the traps that cost real time |
 
 ---
 
