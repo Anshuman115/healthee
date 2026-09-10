@@ -36,6 +36,21 @@
 part of 'signin_failure.dart';
 
 /// The identity provider read the credentials and refused them.
+///
+/// ## It cannot tell you WHICH, and neither can this app
+///
+/// Supabase answers `invalid_credentials` both for a wrong password and for an
+/// email it has never seen, deliberately: an error that distinguished them would
+/// be a way to ask "does this person have an account here?" about anybody, one
+/// address at a time. That is a real protection and this app must not try to
+/// route around it — there is no client-side way to check, because listing users
+/// needs the service-role key and that key must never ship in a client.
+///
+/// So the remedy names BOTH possibilities. An earlier version said only "check
+/// them and try again", which is advice for one of the two cases and a dead end
+/// for the other — the owner who has no account yet retypes a correct password
+/// until they give up, with a "Create an account" link on the same screen they
+/// have no reason to look at.
 @immutable
 final class IdentityRefused extends ServerSignInFailure {
   /// Builds the failure.
@@ -46,8 +61,10 @@ final class IdentityRefused extends ServerSignInFailure {
 
   @override
   String get remedy =>
-      'Check them and try again. If you have forgotten the password, reset it '
-      'with your identity provider — this app cannot change it for you.';
+      'Either the password is wrong, or there is no account for that email yet '
+      '— the sign-in service will not say which. If you have not made one, use '
+      '“Create an account” below. If you have, and you have forgotten the '
+      'password, reset it with your identity provider; this app cannot.';
 
   @override
   String get code => 'identity_refused';
@@ -273,4 +290,52 @@ final class DeviceTokenCapReached extends ServerSignInFailure {
 
   @override
   bool get canRetry => false;
+}
+
+
+/// The identity provider refused, and this app does not recognise the reason.
+///
+/// ## Why this exists rather than falling back to [IdentityRefused]
+///
+/// Defaulting an unknown code to "wrong credentials" is defensible on a SIGN-IN
+/// and nonsense on a SIGN-UP — there is nothing to match against, so "that email
+/// and password did not match" sends the owner to check a password they were in
+/// the middle of choosing. That is not hypothetical: it is exactly what this app
+/// said when a project with email confirmation on could not send the mail.
+///
+/// It carries the provider's stable error code — `weak_password`,
+/// `over_email_send_rate_limit`, `error_sending_confirmation_email`. A code is
+/// not a message and not a body: it is a short identifier from a documented set,
+/// it names no user and quotes no input, and it is the difference between an
+/// owner who can search for their problem and one who cannot. The message stays
+/// out, because that is the part that can echo what was typed.
+@immutable
+final class IdentityUnrecognised extends ServerSignInFailure {
+  /// [providerCode] is the provider's own; [creating] picks the wording.
+  const IdentityUnrecognised(this.providerCode, {required this.creating});
+
+  /// The provider's stable error code, or null when it sent none.
+  final String? providerCode;
+
+  /// Whether this was an attempt to CREATE an account rather than sign in.
+  final bool creating;
+
+  @override
+  String get headline => creating
+      ? 'That account could not be created'
+      : 'The sign-in service refused that';
+
+  @override
+  String get remedy {
+    final named = providerCode == null ? '' : ' It reported “$providerCode”.';
+    return creating
+        ? 'Your email and password were not the problem — the sign-in service '
+              'itself would not complete the request.$named Ask whoever runs '
+              'this server, or try again in a few minutes.'
+        : 'Nothing here says your details were wrong; the service refused the '
+              'request for another reason.$named Try again in a few minutes.';
+  }
+
+  @override
+  String get code => 'identity_unrecognised';
 }

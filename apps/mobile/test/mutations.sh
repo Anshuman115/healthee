@@ -3240,9 +3240,9 @@ mutate 'a rejected push signs the owner out of the app' "$GUARD_TEST" "$INTERCEP
 # without the owner's server ever being told there was an attempt.
 mutate 'the server is asked before the password is proved' \
   "$IDENTITY_TEST" "$IDENTITY_SESSION" \
-  '    await auth.signIn(email: email.trim(), password: password);' \
+  '    final trimmed = email.trim();' \
   '    await probe.verify(url: address, token: '"'"'unproven'"'"');
-    await auth.signIn(email: email.trim(), password: password);'
+    final trimmed = email.trim();'
 
 # A session held only in memory is an owner signed out by every restart.
 mutate 'the Supabase session is never persisted' "$IDENTITY_TEST" \
@@ -3252,6 +3252,38 @@ mutate 'the Supabase session is never persisted' "$IDENTITY_TEST" \
       value: jsonEncode(session.toJson()),
     );' \
   ''
+
+
+# Signing in with an email that has no account, and creating one for an email
+# that already has one, are OPPOSITE mistakes with opposite remedies. One call
+# apart, and the wrong one leaves the owner retrying a create that can never
+# succeed instead of switching to sign in.
+mutate 'creating an account signs in instead' "$IDENTITY_TEST" "$IDENTITY_SESSION" \
+  '    if (create) {
+      await auth.signUp(email: trimmed, password: password);
+    } else {
+      await auth.signIn(email: trimmed, password: password);
+    }' \
+  '    await auth.signIn(email: trimmed, password: password);'
+
+# A project with email confirmation on returns a user and NO session. Treated as
+# success, the app stores nothing and claims to be signed in; treated as a
+# refusal, the owner resets a password that was just accepted.
+mutate 'an unconfirmed signup is reported as success' "$IDENTITY_TEST" \
+  lib/data/auth/identity_client.dart \
+  '    if (response.session == null) {
+      throw const ServerSignInException(IdentityNeedsConfirmation());
+    }' \
+  ''
+
+# ⛔ The Zepp password must never become the Healthee one. Two services, two
+# passwords — reuse means one breach opens both, which is what makes credential
+# stuffing work. The email is a convenience; the password is not offered at all.
+mutate 'the sign-in form is handed a password to prefill' \
+  test/signin/zepp_prefill_test.dart \
+  lib/features/signin/server_signin_screen.dart \
+  '    final email = await ref.read(credentialsProvider).zeppEmail();' \
+  '    final email = await ref.read(credentialsProvider).zeppPassword();'
 
 
 # ⛔ The 44 px is decoration without this line, and NOTHING about that is visible
@@ -3272,6 +3304,7 @@ mutate 'the 44 px link constraint is dropped' \
   static const double minHeight = 44;' \
   '  /// `.text-button { min-height: 44px }`.
   static const double minHeight = 0;'
+
 
 echo
 echo "caught $PASS, survived $FAIL"

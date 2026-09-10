@@ -111,6 +111,7 @@ class IdentityClient {
     await restore();
     await _guarded(
       () => _auth.signInWithPassword(email: email, password: password),
+      creating: false,
     );
   }
 
@@ -123,6 +124,7 @@ class IdentityClient {
     await restore();
     final response = await _guarded(
       () => _auth.signUp(email: email, password: password),
+      creating: true,
     );
     if (response.session == null) {
       throw const ServerSignInException(IdentityNeedsConfirmation());
@@ -203,11 +205,39 @@ class IdentityClient {
   }
 
   /// Runs [call] and turns `gotrue`'s exceptions into this app's named failures.
-  Future<AuthResponse> _guarded(Future<AuthResponse> Function() call) async {
+  Future<AuthResponse> _guarded(
+    Future<AuthResponse> Function() call, {
+    required bool creating,
+  }) async {
     try {
       return await call();
+    } on AuthRetryableFetchException catch (error) {
+      // ⛔ **This clause must come BEFORE `on AuthException`**, which it extends.
+      // Without it a dead connection to the identity provider was caught as a
+      // refusal and reported as one — the exact inversion `signin_failure.dart`
+      // exists to prevent, and it cost a real afternoon: an ISP hijacking DNS
+      // for the provider's domain produced "that account could not be created",
+      // which sent the owner to check an account that was never the problem.
+      //
+      // `gotrue` raises this for a transport failure AND for a 5xx, and both are
+      // "it did not answer" from here: neither says anything about the
+      // credentials, and both are worth retrying, which is what separates this
+      // from every other case in the taxonomy.
+      AppLog.info(
+        'identity',
+        '${creating ? 'sign-up' : 'sign-in'} could not reach the provider '
+            '(${error.statusCode ?? 'no response'})',
+      );
+      throw const ServerSignInException(IdentityUnreachable());
     } on AuthException catch (error) {
-      throw ServerSignInException(identityFailure(error));
+      // The code reaches the log as well as the screen. Without this line the
+      // provider's own reason existed nowhere an operator could read it, and a
+      // failure this app has no case for was indistinguishable from one it does.
+      AppLog.info(
+        'identity',
+        '${creating ? 'sign-up' : 'sign-in'} refused (${error.code})',
+      );
+      throw ServerSignInException(identityFailure(error, creating: creating));
     } on Object catch (error) {
       // Anything that is not an `AuthException` never reached the auth server:
       // a socket, a DNS answer, a TLS handshake. Reported as unreachable rather

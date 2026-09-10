@@ -131,6 +131,14 @@ void main() {
       );
 
       expect(failure, isA<IdentityRefused>());
+      // **The remedy names BOTH cases**, because the provider will not say which
+      // — `invalid_credentials` covers a wrong password and an email it has
+      // never seen, deliberately, so that the error cannot be used to ask
+      // whether a stranger has an account. Advice for only one of the two is a
+      // dead end for the other: an owner with no account retypes a correct
+      // password until they give up.
+      expect(failure!.remedy, contains('no account for that email yet'));
+      expect(failure.remedy, contains('Create an account'));
       // The whole point of doing the identity first: a typo is answered without
       // the owner's server ever being told there was an attempt.
       expect(server.sent, isEmpty);
@@ -204,6 +212,164 @@ void main() {
       // The server owns the number; a client composing its own sentence would be
       // a second definition of a limit it does not set.
       expect(failure!.remedy, said);
+    });
+  });
+
+  group('creating an account', () {
+    test('it signs up, then does everything a sign-in does', () async {
+      final store = FakeSecretStore();
+      final auth = ScriptedAuth();
+      final server = ScriptedServer(
+        replies: const <ServerReply>[
+          ServerReply(200, body: '{"premium":false}'),
+          ServerReply(200, body: '{"device_token":"$_minted","id":"x"}'),
+        ],
+      );
+
+      await _repository(store, auth, server).createAccount(
+        url: _url,
+        email: 'new@example.com',
+        password: 'a long enough one',
+      );
+
+      // The signup endpoint, not the token one — the difference between the two
+      // modes is exactly one call, and this is it.
+      expect(auth.sent.single.url.path, endsWith('/signup'));
+      // And everything after it is shared: the server was asked, a token was
+      // minted, and only then was anything written down.
+      expect(server.sent, hasLength(2));
+      expect(await Credentials(store).apiToken(), _minted);
+    });
+
+    test('AN EMAIL THAT ALREADY HAS AN ACCOUNT IS ITS OWN ANSWER', () async {
+      // The opposite mistake to signing in without one, and the opposite
+      // remedy. Collapsed into "that did not work", the owner retries the
+      // create that can never succeed instead of switching to sign in.
+      final failure = await _failureOf(
+        () => _repository(
+          FakeSecretStore(),
+          ScriptedAuth(
+            status: 422,
+            reply: const <String, Object?>{
+              'error_code': 'user_already_exists',
+              'msg': 'User already registered',
+            },
+          ),
+          ScriptedServer(),
+        ).createAccount(
+          url: _url,
+          email: 'owner@example.com',
+          password: 'whatever',
+        ),
+      );
+
+      expect(failure, isA<IdentityAlreadyExists>());
+      expect(failure!.remedy, contains('Sign in instead'));
+    });
+
+    test('A PROJECT THAT CONFIRMS EMAILS IS NOT A FAILURE', () async {
+      // Supabase returns a user and NO session when confirmation is on. The
+      // account exists and the owner has a mail to open; reporting that as a
+      // refusal would send them to reset a password that was just accepted.
+      final store = FakeSecretStore();
+      final failure = await _failureOf(
+        () => _repository(
+          store,
+          // A signup response carrying no session at all.
+          ScriptedAuth(reply: const <String, Object?>{'user': null}),
+          ScriptedServer(),
+        ).createAccount(
+          url: _url,
+          email: 'new@example.com',
+          password: 'a long enough one',
+        ),
+      );
+
+      expect(failure, isA<IdentityNeedsConfirmation>());
+      expect(failure!.headline, contains('Confirm your email'));
+      // Nothing stored: there is no session to mint against yet.
+      expect(await Credentials(store).apiToken(), isNull);
+    });
+
+    test('A REASON THIS APP HAS NO CASE FOR IS NOT A WRONG PASSWORD', () async {
+      // The defect this closes, exactly as it shipped: a project with email
+      // confirmation on that cannot send the mail answers with a code this app
+      // does not map, and the fallback told someone choosing a NEW password that
+      // their password was wrong. There is nothing to match against on a signup.
+      final failure = await _failureOf(
+        () => _repository(
+          FakeSecretStore(),
+          ScriptedAuth(
+            status: 422,
+            reply: const <String, Object?>{
+              'error_code': 'error_sending_confirmation_email',
+              'msg': 'Error sending confirmation email',
+            },
+          ),
+          ScriptedServer(),
+        ).createAccount(
+          url: _url,
+          email: 'new@example.com',
+          password: 'a long enough one',
+        ),
+      );
+
+      expect(failure, isA<IdentityUnrecognised>());
+      expect(failure, isNot(isA<IdentityRefused>()));
+      expect(failure!.headline, 'That account could not be created');
+      // It says the credentials were NOT the problem, and it names the code so
+      // the reason exists somewhere a person can act on.
+      expect(failure.remedy, contains('were not the problem'));
+      expect(failure.remedy, contains('error_sending_confirmation_email'));
+    });
+
+    test('A PROVIDER THAT DID NOT ANSWER IS UNREACHABLE, NOT A REFUSAL', () async {
+      // **The inversion this taxonomy exists to prevent, in its second
+      // direction.** `AuthRetryableFetchException` extends `AuthException`, so a
+      // dead connection was caught by the refusal clause and reported as one —
+      // and it shipped: an ISP hijacking DNS for the provider's domain produced
+      // "that account could not be created", which sends the owner to check an
+      // account that was never the problem. A 5xx arrives the same way and means
+      // the same thing from here: it did not answer.
+      final failure = await _failureOf(
+        () => _repository(
+          FakeSecretStore(),
+          ScriptedAuth(status: 500, reply: const <String, Object?>{}),
+          ScriptedServer(),
+        ).createAccount(
+          url: _url,
+          email: 'new@example.com',
+          password: 'a long enough one',
+        ),
+      );
+
+      expect(failure, isA<IdentityUnreachable>());
+      expect(failure, isNot(isA<IdentityRefused>()));
+      expect(failure, isNot(isA<IdentityUnrecognised>()));
+      // It says the password was never sent, and it offers a retry — the two
+      // things a refusal must never say.
+      expect(failure!.remedy, contains('never sent'));
+      expect(failure.canRetry, isTrue);
+    });
+
+    test('an uninvited email gets a real account and a refused server', () async {
+      // The two gates are separate and the second one is ours. This is the
+      // designed outcome, not a bug to route around.
+      final store = FakeSecretStore();
+      final failure = await _failureOf(
+        () => _repository(
+          store,
+          ScriptedAuth(),
+          ScriptedServer(reply: const ServerReply(403)),
+        ).createAccount(
+          url: _url,
+          email: 'stranger@example.com',
+          password: 'a long enough one',
+        ),
+      );
+
+      expect(failure, isA<ServerRefusedThisAccount>());
+      expect(await Credentials(store).apiToken(), isNull);
     });
   });
 
