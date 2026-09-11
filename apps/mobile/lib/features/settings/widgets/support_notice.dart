@@ -24,6 +24,8 @@ import 'package:healthee/core/logging.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale_forms.dart';
 import 'package:healthee/shared/v02/buttons.dart';
+import 'package:healthee/shared/v02/surfaces.dart';
+import 'package:solar_icons/solar_icons.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Where one-off and recurring support goes.
@@ -36,6 +38,63 @@ const String kSponsorUrl = 'https://afk.codes/sponsor';
 const String kSupportBody =
     'Healthee is free and has no paid tier. Nothing here is behind a wall and '
     'nothing unlocks — support pays for hosting and research time.';
+
+/// The heading the prominent card carries. Public so a test can pin it.
+const String kSupportHeading = 'Keep Healthee free';
+
+/// The louder form, for the top of the profile screen.
+///
+/// Same two destinations and the same honesty line as [SupportNotice] — one set of
+/// constants, so the repository, the About screen and this cannot drift apart and
+/// send somebody to an account nobody watches.
+///
+/// ⚠ It is the FIRST thing on that screen, which is a real cost: it pushes the
+/// owner's own details down. That is a deliberate choice and not an accident of
+/// layout — the ask only works if people see it. It stays off Today, Sleep,
+/// Activity and Actions, which are the screens somebody opens to read a number
+/// about their body; a donation card above a recovery score is a health app
+/// wanting something from you at the moment you are most vulnerable to it.
+class SupportCard extends StatelessWidget {
+  /// Const constructor.
+  const SupportCard({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = context.colors;
+    return PlainCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Row(
+            children: <Widget>[
+              Icon(SolarIconsBold.heart, color: colors.accent, size: 22),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  kSupportHeading,
+                  style: FormType.heading3.copyWith(color: colors.ink),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          const SmallProse(kSupportBody),
+          const SizedBox(height: 14),
+          HButton(
+            label: 'Support on Ko-fi',
+            onPressed: () => unawaited(SupportNotice.open(kKofiUrl)),
+          ),
+          const SizedBox(height: 8),
+          HLinkButton(
+            label: 'Other ways to support',
+            onPressed: () => unawaited(SupportNotice.open(kSponsorUrl)),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 /// The support block: what it does not buy, then the two ways to give.
 class SupportNotice extends StatelessWidget {
@@ -57,12 +116,12 @@ class SupportNotice extends StatelessWidget {
         HButton(
           label: 'Support on Ko-fi',
           kind: HButtonKind.secondary,
-          onPressed: () => unawaited(_open(kKofiUrl)),
+          onPressed: () => unawaited(SupportNotice.open(kKofiUrl)),
         ),
         const SizedBox(height: 8),
         HLinkButton(
           label: 'Other ways to support',
-          onPressed: () => unawaited(_open(kSponsorUrl)),
+          onPressed: () => unawaited(SupportNotice.open(kSponsorUrl)),
         ),
       ],
     );
@@ -71,7 +130,8 @@ class SupportNotice extends StatelessWidget {
   /// Opens [url], and says so in the log when the phone has nothing that can.
   ///
   /// A button that silently does nothing is worse than one that never appeared.
-  Future<void> _open(String url) async {
+  /// Static and shared, so both presentations open the same way.
+  static Future<void> open(String url) async {
     final opened = await launchUrl(
       Uri.parse(url),
       mode: LaunchMode.externalApplication,
