@@ -58,6 +58,21 @@ String updateLine(AsyncValue<UpdateStatus> status) => switch (status) {
 Uri releasePage(AppRelease release) =>
     Uri.parse('https://github.com/$kReleasesRepo/releases/tag/${release.tag}');
 
+/// Opens [release]'s page, and says so in the log if the phone cannot.
+///
+/// A device with no browser is a real state, and a button that silently does
+/// nothing is worse than one that never appeared. Top-level and public because
+/// two surfaces send people to the same place — this notice and
+/// `update_sheet.dart` — and a second copy is a second chance to send one of
+/// them somewhere else.
+Future<void> openReleasePage(AppRelease release) async {
+  final uri = releasePage(release);
+  final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+  if (!opened) {
+    AppLog.info('updates', 'nothing on this phone would open the release page');
+  }
+}
+
 /// The version line's companion: what is published, and the way to it.
 class UpdateNotice extends ConsumerWidget {
   /// Const constructor.
@@ -84,22 +99,10 @@ class UpdateNotice extends ConsumerWidget {
           HButton(
             label: 'Open the release',
             kind: HButtonKind.secondary,
-            onPressed: () => unawaited(_open(release)),
+            onPressed: () => unawaited(openReleasePage(release)),
           ),
         ],
       ],
     );
-  }
-
-  /// Opens the release page, and says so in the log if the phone cannot.
-  ///
-  /// A device with no browser is a real state, and a button that silently does
-  /// nothing is worse than one that never appeared.
-  Future<void> _open(AppRelease release) async {
-    final uri = releasePage(release);
-    final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
-    if (!opened) {
-      AppLog.info('updates', 'nothing on this phone would open the release page');
-    }
   }
 }

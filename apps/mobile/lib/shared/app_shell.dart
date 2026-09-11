@@ -95,6 +95,7 @@ import 'package:go_router/go_router.dart';
 import 'package:healthee/core/router.dart';
 import 'package:healthee/core/tabs.dart';
 import 'package:healthee/features/coach/widgets/coach_fab.dart';
+import 'package:healthee/features/settings/widgets/update_sheet.dart';
 import 'package:healthee/shared/app_tab_bar.dart';
 
 /// The tab frame: the shell's current branch, over the one bar.
@@ -108,30 +109,35 @@ class AppShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final onHome = navigationShell.currentIndex == kHomeTabIndex;
-    return PopScope(
-      // Always false: the three outcomes are decided below, and a `canPop`
-      // computed from the branch stacks would need recomputing on every push
-      // anywhere in the app. See the library docstring.
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) {
-        if (didPop) {
-          return;
-        }
-        handleBack();
-      },
-      child: Scaffold(
-        body: navigationShell,
-        floatingActionButton: onHome
-            ? CoachFab(onTap: () => unawaited(context.push(Routes.coach)))
-            : null,
-        bottomNavigationBar: AppTabBar(
-          currentIndex: navigationShell.currentIndex,
-          onSelect: (index) => navigationShell.goBranch(
-            index,
-            // Pressing the tab you are already on resets that branch to its root,
-            // which is the one thing a bottom bar universally means. Pressing any
-            // other tab keeps the branch exactly as it was left.
-            initialLocation: index == navigationShell.currentIndex,
+    // Wrapped here and nowhere else: the update sheet is over the APP, so it
+    // needs a context under the root navigator — the same reason `showAppSheet`
+    // passes `useRootNavigator: true`. It draws nothing of its own.
+    return UpdateWatcher(
+      child: PopScope(
+        // Always false: the three outcomes are decided below, and a `canPop`
+        // computed from the branch stacks would need recomputing on every push
+        // anywhere in the app. See the library docstring.
+        canPop: false,
+        onPopInvokedWithResult: (didPop, result) {
+          if (didPop) {
+            return;
+          }
+          handleBack();
+        },
+        child: Scaffold(
+          body: navigationShell,
+          floatingActionButton: onHome
+              ? CoachFab(onTap: () => unawaited(context.push(Routes.coach)))
+              : null,
+          bottomNavigationBar: AppTabBar(
+            currentIndex: navigationShell.currentIndex,
+            onSelect: (index) => navigationShell.goBranch(
+              index,
+              // Pressing the tab you are already on resets that branch to its root,
+              // which is the one thing a bottom bar universally means. Pressing any
+              // other tab keeps the branch exactly as it was left.
+              initialLocation: index == navigationShell.currentIndex,
+            ),
           ),
         ),
       ),
