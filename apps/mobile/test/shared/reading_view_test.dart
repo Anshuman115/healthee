@@ -19,6 +19,7 @@ import 'package:healthee/data/honesty/reading.dart';
 import 'package:healthee/data/store/local_store.dart';
 import 'package:healthee/data/store/store_provider.dart';
 import 'package:healthee/data/today_repository.dart';
+import 'package:healthee/data/updates/update_check.dart';
 import 'package:healthee/shared/states/caveat_disclosure.dart';
 import 'package:healthee/shared/states/reading_view.dart';
 import 'package:healthee/shared/states/state_scaffold.dart';
@@ -62,6 +63,13 @@ void main() {
         ProviderScope(
           overrides: [localStoreProvider.overrideWithValue(store),
             todaySnapshotProvider.overrideWith(todayUnreachable()),
+      // The update check is a real GitHub request, started by `UpdateWatcher` on
+      // the app frame. Left live it outlives the test as a pending Dio timer —
+      // "A Timer is still pending even after the widget tree was disposed",
+      // which names nothing about updates and sends you looking at the screen
+      // under test. Unknown is the honest stub: it is what an offline phone
+      // gets, and it opens no sheet.
+      updateStatusProvider.overrideWith((ref) async => const UpdateUnknown()),
           ],
           child: const HealtheeApp(),
         ),
@@ -83,6 +91,13 @@ void main() {
             themeControllerProvider.overrideWith(_AlwaysDark.new),
             localStoreProvider.overrideWithValue(store),
             todaySnapshotProvider.overrideWith(todayUnreachable()),
+      // The update check is a real GitHub request, started by `UpdateWatcher` on
+      // the app frame. Left live it outlives the test as a pending Dio timer —
+      // "A Timer is still pending even after the widget tree was disposed",
+      // which names nothing about updates and sends you looking at the screen
+      // under test. Unknown is the honest stub: it is what an offline phone
+      // gets, and it opens no sheet.
+      updateStatusProvider.overrideWith((ref) async => const UpdateUnknown()),
           ],
           child: const HealtheeApp(),
         ),
