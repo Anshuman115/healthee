@@ -1,9 +1,22 @@
 # Healthee
 
+<p align="center">
+  <a href="https://github.com/afkcodes/healthee/releases/latest"><img src="https://img.shields.io/github/downloads/afkcodes/healthee/total?style=flat-square&label=downloads&logo=android" alt="Total downloads" /></a>
+  <a href="https://github.com/afkcodes/healthee/releases/latest"><img src="https://img.shields.io/github/v/release/afkcodes/healthee?style=flat-square&label=latest" alt="Latest release" /></a>
+  <img src="https://img.shields.io/badge/Platform-Android-green.svg?style=flat-square&logo=android" alt="Android" />
+  <img src="https://img.shields.io/badge/App-Flutter-blue.svg?style=flat-square&logo=flutter" alt="Flutter" />
+  <img src="https://img.shields.io/badge/Backend-Python%203.13-blue.svg?style=flat-square&logo=python" alt="Python 3.13" />
+</p>
+
 **An honest, self-hosted AI health companion.** Data comes off an Amazfit Helio
 Strap over a reverse-engineered BLE protocol; a Python backend owns the full
 history, an evidence-graded science layer, and a grounded AI coach; a Flutter app
-(in progress) puts it on your wrist with 60 days of local history.
+puts it on your wrist with 60 days of local history.
+
+**[⬇ Download the latest APK](https://github.com/afkcodes/healthee/releases/latest)** —
+Android, sideloaded, signed. It is compiled against nobody's server: you enter your
+own address and it asks that server which identity provider to use, so the same
+build works for anyone running their own ([self-hosting guide](#self-hosting-guide)).
 
 Healthee's one promise: **it never flatters.** Every interpretive claim is grounded
 in a graded research corpus, every number carries its data confidence, and *"not
