@@ -19,18 +19,22 @@ Android, sideloaded, signed. It is compiled against nobody's server: you enter y
 own address and it asks that server which identity provider to use, so the same
 build works for anyone running their own ([self-hosting guide](#self-hosting-guide)).
 
+<div align="center">
+
+### ❤️ Keep Healthee free
+
+**It has no paid tier, no subscription, and nothing behind a wall.**
+If it is useful to you, that is what keeps it going.
+
+**[☕ Support on Ko-fi](https://ko-fi.com/afkcodes)** · **[💝 Other ways to support](https://afk.codes/sponsor)**
+
+</div>
+
 Healthee's one promise: **it never flatters.** Every interpretive claim is grounded
 in a graded research corpus, every number carries its data confidence, and *"not
 enough data"* always beats an optimistic guess. It exists to tell you the truth
 about your body and nudge you toward the next real improvement — not to hand out
 green rings.
-
-> **Status:** the backend is **complete, deployed, and multi-tenant**, and the
-> Flutter app ships Supabase sign-in. Production runs from this repo. The
-> transitional shared token that let the un-rebuilt app authenticate as one tenant
-> was **removed on 2026-09-10**: `/api/*` takes a Supabase JWT, `/ingest/*` takes a
-> per-device token this server minted, and there is no third way in.
-> This is a clean rebuild; the previous implementation is archived as reference.
 
 ---
 
