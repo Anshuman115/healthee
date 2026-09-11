@@ -40,4 +40,12 @@ void main() {
     expect(kKofiUrl, 'https://ko-fi.com/afkcodes');
     expect(kSponsorUrl, 'https://afk.codes/sponsor');
   });
+
+  test('the prominent card and the quiet one share ONE set of values', () {
+    // Two presentations, one source. If the profile card carried its own copy of
+    // the URLs or the honesty line, one of them would eventually be edited and the
+    // other would not — and the stale one would keep collecting money.
+    expect(kSupportHeading, isNotEmpty);
+    expect(kSupportBody, contains('no paid tier'));
+  });
 }
