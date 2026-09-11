@@ -22,7 +22,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:healthee/data/profile/health_profile.dart';
 import 'package:healthee/data/profile/profile_repository.dart';
 import 'package:healthee/features/profile/widgets/profile_editor.dart';
-import 'package:healthee/features/settings/widgets/support_notice.dart';
 import 'package:healthee/shared/states/async_view.dart';
 import 'package:healthee/shared/states/current_account_value.dart';
 import 'package:healthee/shared/v02/settings_page.dart';
@@ -43,13 +42,6 @@ class ProfileScreen extends ConsumerWidget {
     title: title,
     eyebrow: eyebrow,
     children: <Widget>[
-      // ⛔ FIRST, on purpose, and it costs something: the owner's own details move
-      // down the screen. The ask only works if people see it, and this is the one
-      // screen where that trade is acceptable — it is about the account rather
-      // than about the body. `support_notice.dart` argues why it stays off Today,
-      // Sleep, Activity and Actions.
-      const SupportCard(),
-      const SectionGap(),
       AsyncView<ProfileRepository>(
         value: currentAccountValue(ref.watch(profileRepositoryProvider)),
         onRetry: () => ref.invalidate(profileRepositoryProvider),

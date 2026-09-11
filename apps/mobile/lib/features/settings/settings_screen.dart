@@ -60,6 +60,7 @@ import 'package:healthee/data/pairing/pairing_repository.dart';
 import 'package:healthee/data/profile/health_profile.dart';
 import 'package:healthee/data/profile/profile_repository.dart';
 import 'package:healthee/features/settings/setting_values.dart';
+import 'package:healthee/features/settings/widgets/support_notice.dart';
 import 'package:healthee/features/today/v02/today_header.dart';
 import 'package:healthee/shared/instrument/h_tap.dart';
 import 'package:healthee/shared/states/current_account_value.dart';
@@ -102,6 +103,16 @@ class SettingsScreen extends ConsumerWidget {
           profile: profile,
           onOpen: () => unawaited(context.push(Routes.profile)),
         ),
+        const SectionGap(),
+        // SECOND, and above every section — not first. The owner's own card is
+        // what this screen is for, and an ask sitting above it read as a toll on
+        // the way in. Here it is still the first thing after their own details
+        // and still above the fold, which is all the visibility it needed; it
+        // lived one level down on the profile screen, two taps from any tab, and
+        // an ask nobody scrolls to is an ask that does not happen.
+        // `support_notice.dart` argues why it stays off Today, Sleep, Activity
+        // and Actions entirely.
+        const SupportCard(),
         const SectionGap(),
         const SectionHead(title: 'Your connected device'),
         FlushCard(
