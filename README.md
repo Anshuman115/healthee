@@ -6,6 +6,7 @@
   <img src="https://img.shields.io/badge/Platform-Android-green.svg?style=flat-square&logo=android" alt="Android" />
   <img src="https://img.shields.io/badge/App-Flutter-blue.svg?style=flat-square&logo=flutter" alt="Flutter" />
   <img src="https://img.shields.io/badge/Backend-Python%203.13-blue.svg?style=flat-square&logo=python" alt="Python 3.13" />
+  <a href="https://ko-fi.com/afkcodes"><img src="https://img.shields.io/badge/Support-Ko--fi-ff5e5b.svg?style=flat-square&logo=kofi&logoColor=white" alt="Support on Ko-fi" /></a>
 </p>
 
 **An honest, self-hosted AI health companion.** Data comes off an Amazfit Helio
@@ -47,6 +48,7 @@ green rings.
   - [Building the app](#6-building-the-app)
   - [Cutting a release](#7-cutting-a-release)
 - [Development](#development)
+- [Supporting this](#supporting-this)
 - [Roadmap](#roadmap)
 - [Documentation](#documentation)
 
@@ -759,6 +761,25 @@ file cap, no swallowed errors, tests in the same PR, science ported verbatim: se
   learn which Supabase project to sign in against from whichever server you point
   it at, so the published APK is compiled against nobody's project and the same
   binary serves everybody ([Building the app](#6-building-the-app)).
+
+## Supporting this
+
+Healthee is free, self-hosted, and has no subscription — you run it on your own
+server and it costs you whatever that server and your own LLM key cost. There is
+nothing to upsell you, which is the point.
+
+If it is useful to you and you want to help:
+
+- **[Ko-fi](https://ko-fi.com/afkcodes)** — one-off or recurring.
+- **[afk.codes/sponsor](https://afk.codes/sponsor)** — direct, no platform cut.
+
+Neither unlocks anything. There is no paid tier, no feature behind a wall, and no
+plan to add one — `SELF_HOST_UNLOCKED` exists precisely so a self-hoster paying
+their own AI bill gets the whole product. Contributions pay for the hosting and the
+research time, nothing more.
+
+Reporting a bug with enough detail to reproduce it is worth more than money, and
+this repository has taken several of those already.
 
 ## Documentation
 
