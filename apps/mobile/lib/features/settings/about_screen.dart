@@ -32,6 +32,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:healthee/core/theme/tokens.dart';
 import 'package:healthee/core/theme/type_scale_forms.dart';
 import 'package:healthee/features/settings/app_version.dart';
+import 'package:healthee/features/settings/widgets/support_notice.dart';
 import 'package:healthee/features/settings/widgets/update_notice.dart';
 import 'package:healthee/features/today/v02/today_header.dart';
 import 'package:healthee/shared/v02/buttons.dart';
@@ -129,6 +130,11 @@ class AboutScreen extends ConsumerWidget {
                   ],
                 ),
               ),
+              const SizedBox(height: blockGap),
+              // After the credit block and before the licences: somebody reading
+              // who made this is already asking the question this answers. It is
+              // deliberately not on Today — see `support_notice.dart`.
+              const SupportNotice(),
               const SizedBox(height: blockGap),
               HButton(
                 label: 'Licences and notices',
