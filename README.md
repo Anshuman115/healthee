@@ -23,7 +23,6 @@ build works for anyone running their own ([self-hosting guide](#self-hosting-gui
 
 ### ❤️ Keep Healthee free
 
-**It has no paid tier, no subscription, and nothing behind a wall.**
 If it is useful to you, that is what keeps it going.
 
 **[☕ Support on Ko-fi](https://ko-fi.com/afkcodes)** · **[💝 Other ways to support](https://afk.codes/sponsor)**
